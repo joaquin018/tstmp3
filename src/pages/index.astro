@@ -35,7 +35,7 @@ import '../styles/global.css';
     <!-- Contenido Principal -->
     <div class="main-content">
         <div class="container">
-            <div class="version">v0.1.4</div>
+            <div class="version">v0.1.5</div>
             <h1>YouTube to MP3</h1>
             <p class="subtitle"></p>
 
@@ -257,22 +257,29 @@ import '../styles/global.css';
                 let Essentia = (window as any).Essentia;
                 let EssentiaWASM = (window as any).EssentiaWASM;
 
-                // DIAGNOSTIC FALLBACK: Some builds nest WASM inside Essentia
-                if (Essentia && !EssentiaWASM && Essentia.EssentiaWASM) {
-                    EssentiaWASM = Essentia.EssentiaWASM;
+                // DIAGNOSTIC FALLBACK: Look into every possible corner
+                if (Essentia && !EssentiaWASM) {
+                    EssentiaWASM = Essentia.EssentiaWASM || Essentia.EssentiaJS || Essentia.WASM;
                 }
 
                 if (!Essentia || !EssentiaWASM) {
-                    log('⏳ Reintentando detección de motor...', 'warn');
-                    // Tiny wait to let scripts execute if needed
-                    await new Promise(r => setTimeout(r, 500));
-                    Essentia = (window as any).Essentia;
-                    EssentiaWASM = (window as any).EssentiaWASM || (Essentia ? Essentia.EssentiaWASM : null);
+                    log('⏳ Escaneando entorno global (Súper Diagnóstico v0.1.5)...', 'warn');
+                    const allGlobals = Object.keys(window);
+                    const eGlobals = allGlobals.filter(k => k.toLowerCase().startsWith('e'));
+                    const essentiaProps = Essentia ? Object.keys(Essentia).filter(k => k.toLowerCase().includes('wasm') || k.toLowerCase().includes('js')) : [];
+                    
+                    log('🔍 Reporte de búsqueda:', 'info', {
+                        foundGlobals: eGlobals,
+                        essentiaInternalProps: essentiaProps,
+                        scriptNodes: Array.from(document.querySelectorAll('script')).map(s => (s as any).src || 'inline')
+                    });
+
+                    // One last attempt searching for common aliases
+                    EssentiaWASM = (window as any).EssentiaWasm || (window as any).essentiaWasm || (window as any).essentia;
                 }
 
                 if (!Essentia || !EssentiaWASM) {
-                    const availableGlobals = Object.keys(window).filter(k => k.toLowerCase().includes('essentia'));
-                    throw new Error(`Motor no encontrado. Globales detectadas: [${availableGlobals.join(', ')}]`);
+                    throw new Error(`Motor A no pudo vincularse en v0.1.5. Revisa el log de diagnóstico arriba.`);
                 }
 
                 log('⚙️ Inicializando backend WASM...');
