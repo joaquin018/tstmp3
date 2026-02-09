@@ -37,6 +37,12 @@ body {
   flex-direction: column;
   font-family: 'Fira Code', 'Courier New', monospace;
   font-size: 0.8rem;
+  transition: width 0.3s ease;
+  z-index: 1000;
+}
+
+#terminal.expanded {
+  width: 600px;
 }
 
 .terminal-header {
@@ -47,6 +53,33 @@ body {
   font-weight: bold;
   display: flex;
   justify-content: space-between;
+  align-items: center;
+}
+
+.terminal-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.terminal-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.terminal-actions button {
+  background: #333;
+  border: 1px solid #444;
+  color: #fff;
+  padding: 4px 8px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  border-radius: 4px;
+  width: auto;
+}
+
+.terminal-actions button:hover {
+  background: #444;
 }
 
 .terminal-body {
@@ -77,6 +110,65 @@ body {
 
 .log-info {
   color: var(--accent);
+}
+
+.log-toggle {
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  background: #222;
+  border-radius: 4px;
+  margin-left: 8px;
+  transition: all 0.2s;
+  user-select: none;
+  border: 1px solid #333;
+}
+
+.log-toggle:hover {
+  background: #333;
+  border-color: var(--accent);
+}
+
+.log-data {
+  display: none;
+  background: #080808;
+  color: #999;
+  padding: 12px;
+  margin-top: 8px;
+  margin-bottom: 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  border: 1px solid #222;
+  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.5);
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  line-height: 1.4;
+}
+
+.log-data.visible {
+  display: block;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.log-error .log-data {
+  border-left: 3px solid #ff5555;
+}
+
+.log-warn .log-data {
+  border-left: 3px solid #ffcc00;
 }
 
 .main-content {

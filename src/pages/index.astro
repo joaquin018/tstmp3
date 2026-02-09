@@ -14,18 +14,25 @@ import '../styles/global.css';
     <!-- Terminal Falso (Izquierda) -->
     <div id="terminal">
         <div class="terminal-header">
-            <span>Terminal de Análisis</span>
-            <span id="terminalStatus">IDLE</span>
+            <div class="terminal-title-group">
+                 <span>Terminal de Análisis</span>
+                 <span id="terminalStatus">IDLE</span>
+            </div>
+            <div class="terminal-actions">
+                <button id="clearLogs" title="Limpiar logs">🧹</button>
+                <button id="toggleExpand" title="Expandir/Contraer">↔️</button>
+                <button id="downloadLogs" title="Descargar Log Completo">💾</button>
+            </div>
         </div>
         <div class="terminal-body" id="logContainer">
-            <div class="log-entry"><span class="log-time">[00:00:00]</span> Bienvenido al Laboratorio v0.0.9</div>
+            <div class="log-entry"><span class="log-time">[00:00:00]</span> Bienvenido al Laboratorio v0.1.3</div>
         </div>
     </div>
 
     <!-- Contenido Principal -->
     <div class="main-content">
         <div class="container">
-            <div class="version">v0.1.1</div>
+            <div class="version">v0.1.3</div>
             <h1>YouTube to MP3</h1>
             <p class="subtitle"></p>
 
@@ -54,6 +61,11 @@ import '../styles/global.css';
 
             <div id="analysisSection">
                 <h2>The Audio Analysis Lab</h2>
+                <div class="engine-card consensus" id="consensus-card">
+                    <div class="engine-name">🏆 Consenso Final</div>
+                    <div class="bpm-value" id="bpmConsensus">--</div>
+                    <div class="key-value" id="keyConsensus">Buscando acuerdo...</div>
+                </div>
                 <div class="analysis-grid">
                     <div class="analysis-card" id="cardA">
                         <h3>Essentia.js (A)</h3>
@@ -78,19 +90,58 @@ import '../styles/global.css';
         </div>
     </div>
 
+    <script is:inline src="https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia-wasm.umd.js"></script>
+    <script is:inline src="https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia.js-core.umd.js"></script>
+
     <script>
-        // --- Sistema de Logs para Terminal Falsa ---
+        // --- Sistema de Logs Avanzado ---
         const logContainer = document.querySelector('#logContainer');
         const termStatus = document.querySelector('#terminalStatus');
+        const fullLogs: any[] = [];
 
-        function log(msg: string, type: 'info'|'warn'|'error' = 'info') {
+        function log(msg: string, type: 'info'|'warn'|'error' = 'info', data: any = null) {
             const time = new Date().toLocaleTimeString();
+            fullLogs.push({ time, msg, type, data, timestamp: Date.now() });
+
             const entry = document.createElement('div');
             entry.className = `log-entry log-${type}`;
-            entry.innerHTML = `<span class="log-time">[${time}]</span> ${msg}`;
+            
+            let html = `<span class="log-time">[${time}]</span> ${msg}`;
+            
+            if (data) {
+                const dataStr = typeof data === 'object' ? JSON.stringify(data, null, 2) : String(data);
+                html += ` <span class="log-toggle" onclick="this.nextElementSibling.classList.toggle('visible')">🔍</span>`;
+                html += `<pre class="log-data">${dataStr}</pre>`;
+            }
+            
+            entry.innerHTML = html;
             logContainer?.appendChild(entry);
             logContainer?.scrollTo(0, logContainer.scrollHeight);
+            
+            if (type === 'error') console.error(`[LOG ERROR] ${msg}`, data);
+            else console.log(`[LOG ${type.toUpperCase()}] ${msg}`, data);
         }
+
+        // Terminal Actions
+        document.querySelector('#clearLogs')?.addEventListener('click', () => {
+            if (logContainer) logContainer.innerHTML = '';
+            fullLogs.length = 0;
+            log('Logs limpiados.');
+        });
+
+        document.querySelector('#toggleExpand')?.addEventListener('click', () => {
+            const term = document.querySelector('#terminal') as HTMLElement;
+            term.classList.toggle('expanded');
+        });
+
+        document.querySelector('#downloadLogs')?.addEventListener('click', () => {
+            const blob = new Blob([JSON.stringify(fullLogs, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `analysis_log_${new Date().toISOString()}.json`;
+            a.click();
+        });
 
         const form = document.querySelector('#downloadForm');
         const statusDiv = document.querySelector('#status');
@@ -126,6 +177,10 @@ import '../styles/global.css';
             statusDiv.className = 'status-info';
             statusDiv.innerHTML = '<span class="loader"></span> Procesando...';
             btn.disabled = true;
+            results = { bpmA: null, bpmB: null, bpmC: null };
+            document.querySelector('#bpmConsensus')!.textContent = '--';
+            document.querySelector('#keyConsensus')!.textContent = 'Buscando acuerdo...';
+
             log(`➡️ URL enviada: ${url}`);
 
             try {
@@ -186,37 +241,51 @@ import '../styles/global.css';
             }
         }
 
-        // --- Motores (Fixes v0.1.1) ---
+        // --- Motores (Fixes v0.1.2) ---
+
+        // Global results for consensus
+        let results = {
+            bpmA: null,
+            bpmB: null,
+            bpmC: null
+        };
 
         async function runEssentia(signal: Float32Array, sampleRate: number) {
             log('🚀 Motor A (Essentia): Iniciando...');
             try {
-                // Essentia browser initialization is tricky with ESM
-                const mod: any = await import('essentia.js');
-                
-                // Helper to find constructors in the module
-                const Essentia = mod.Essentia || mod.default?.Essentia || (mod.default && mod.default);
-                const EssentiaWASM = mod.EssentiaWASM || mod.default?.EssentiaWASM;
+                // Now using global variables from CDN (is:inline)
+                const Essentia = (window as any).Essentia;
+                const EssentiaWASM = (window as any).EssentiaWASM;
 
-                log(`🔍 Diagnóstico A: mod type=${typeof mod}, hasEssentia=${!!Essentia}`);
-                
-                if (typeof Essentia !== 'function') {
-                   throw new Error(`${typeof Essentia} is not a constructor (check module structure)`);
+                if (!Essentia || !EssentiaWASM) {
+                    throw new Error("Librerías de Essentia no cargadas. Reintenta en unos segundos.");
                 }
 
-                const essentia = new Essentia(EssentiaWASM);
+                log('⚙️ Inicializando backend WASM...');
+                const backend = await EssentiaWASM();
+                log('✨ Creando instancia principal...');
+                const essentia = new Essentia(backend);
                 log('✨ Instancia Essentia creada con éxito.');
-
+                
                 const vector = essentia.arrayToVector(signal);
                 const bpmRes = essentia.PercivalBPM(vector);
                 const keyRes = essentia.KeyExtractor(vector);
-
-                document.querySelector('#bpmA')!.textContent = Math.round(bpmRes.bpm).toString();
+                
+                const bpm = Math.round(bpmRes.bpm);
+                results.bpmA = bpm;
+                
+                document.querySelector('#bpmA')!.textContent = bpm.toString();
                 document.querySelector('#keyA')!.textContent = `Clave: ${keyRes.key} ${keyRes.scale}`;
                 document.querySelector('#statusA')!.textContent = '✅ OK';
-                log(`🎯 Motor A finalizó: ${Math.round(bpmRes.bpm)} BPM | ${keyRes.key} ${keyRes.scale}`);
+                log(`🎯 Motor A finalizó: ${bpm} BPM | ${keyRes.key} ${keyRes.scale}`);
+                updateConsensus();
             } catch (e: any) {
-                log(`❌ Fallo Motor A: ${e.message}`, 'error');
+                log(`❌ Fallo Motor A: ${e.message}`, 'error', {
+                    errorName: e.name,
+                    stack: e.stack,
+                    essentiaAvailable: !!(window as any).Essentia,
+                    wasmAvailable: !!(window as any).EssentiaWASM
+                });
                 document.querySelector('#statusA')!.textContent = '❌ Error';
             }
         }
@@ -227,18 +296,20 @@ import '../styles/global.css';
                 const mod: any = await import('realtime-bpm-analyzer');
                 const analyzeFullBuffer = mod.analyzeFullBuffer || mod.default?.analyzeFullBuffer;
 
-                log(`🔍 Diagnóstico B: mod type=${typeof mod}, hasAnalyze=${!!analyzeFullBuffer}`);
-
                 if (!analyzeFullBuffer) {
                     throw new Error('Función analyzeFullBuffer no encontrada en el módulo.');
                 }
 
-                const results = await analyzeFullBuffer(audioBuffer);
-                if (results && results.length > 0) {
-                    const best = results[0];
-                    document.querySelector('#bpmB')!.textContent = Math.round(best.tempo).toString();
+                const data = await analyzeFullBuffer(audioBuffer);
+                if (data && data.length > 0) {
+                    const best = data[0];
+                    const bpm = Math.round(best.tempo);
+                    results.bpmB = bpm;
+                    
+                    document.querySelector('#bpmB')!.textContent = bpm.toString();
                     document.querySelector('#statusB')!.textContent = '✅ OK';
-                    log(`🎯 Motor B finalizó: ${Math.round(best.tempo)} BPM (Confianza: ${best.count})`);
+                    log(`🎯 Motor B finalizó: ${bpm} BPM (Confianza: ${best.count})`);
+                    updateConsensus();
                 } else {
                     log('⚠️ Motor B no detectó ritmo claro.', 'warn');
                     document.querySelector('#statusB')!.textContent = '❓ Nulo';
@@ -255,57 +326,58 @@ import '../styles/global.css';
                 const aubiojs = (await import('aubiojs')).default;
                 const aubio = await aubiojs();
                 
-                // Parámetros para mayor precisión
                 const winSize = 2048;
                 const hopSize = 512;
                 
-                // 1. Detección de BPM
                 const tempo = new aubio.Tempo(winSize, hopSize, sampleRate);
                 let bpms: number[] = [];
                 
-                // 2. Detección de Pitch (para Clave aproximada)
                 const pitch = new aubio.Pitch('default', winSize, hopSize, sampleRate);
                 let pitches: number[] = [];
 
                 for (let i = 0; i < signal.length; i += hopSize) {
                     const frame = signal.slice(i, i + hopSize);
                     if (frame.length === hopSize) {
-                        // Tempo
                         if (tempo.do(frame)) {
                             const b = tempo.getBpm();
                             if (b > 30 && b < 250) bpms.push(b);
                         }
-                        // Pitch
                         const p = pitch.do(frame);
                         if (p > 50 && p < 2000) pitches.push(p);
                     }
                 }
                 
-                // Procesar BPM
                 if (bpms.length > 0) {
                     bpms.sort((a,b) => a-b);
                     let median = bpms[Math.floor(bpms.length / 2)];
                     
-                    // HEURÍSTICA: Si la mediana está cerca de 126 y sospechamos de un armónico de 84
-                    // (126 es 1.5x de 84). Comprobamos si hay muchos valores cerca de 84.
-                    const tolerance = 5;
-                    const possibleLower = (median * 2) / 3; // 126 -> 84
-                    const candidatesLower = bpms.filter(b => Math.abs(b - possibleLower) < tolerance);
-                    
-                    if (candidatesLower.length > bpms.length * 0.2) {
-                        log(`💡 Motor C: Detectada posible armonía. Ajustando ${median.toFixed(1)} -> ${possibleLower.toFixed(1)}`);
-                        median = possibleLower;
+                    // HEURÍSTICA MEJORADA: Detectar armónicos comunes
+                    // Si la canción es ~83, Aubio suele dar ~126 (1.5x) o ~166 (2x)
+                    // Comprobamos si hay clusters significativos en las versiones divididas.
+                    const checkHarmony = (val: number, divisor: number) => {
+                        const target = val / divisor;
+                        const count = bpms.filter(b => Math.abs(b - target) < 3).length;
+                        return count > bpms.length * 0.15; // 15% de los beats sugieren este ritmo
+                    };
+
+                    if (checkHarmony(median, 1.5)) {
+                        log(`💡 Motor C: Detectada armonía 1.5x. Ajustando ${median.toFixed(0)} -> ${(median/1.5).toFixed(0)}`);
+                        median = median / 1.5;
+                    } else if (checkHarmony(median, 2)) {
+                        log(`💡 Motor C: Detectada armonía 2x. Ajustando ${median.toFixed(0)} -> ${(median/2).toFixed(0)}`);
+                        median = median / 2;
                     }
 
-                    document.querySelector('#bpmC')!.textContent = Math.round(median).toString();
-                    log(`🎯 Motor C finalizó: ${Math.round(median)} BPM`);
+                    const bpm = Math.round(median);
+                    results.bpmC = bpm;
+                    document.querySelector('#bpmC')!.textContent = bpm.toString();
+                    log(`🎯 Motor C finalizó: ${bpm} BPM`);
+                    updateConsensus();
                 }
 
-                // Procesar Pitch (Clave muy aproximada)
                 if (pitches.length > 0) {
                     pitches.sort((a,b) => a-b);
                     const avgPitch = pitches[Math.floor(pitches.length/2)];
-                    // Convertir Hz a nota (simplificado)
                     const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
                     const semitone = 12 * (Math.log(avgPitch / 440) / Math.log(2)) + 69;
                     const noteIndex = Math.round(semitone) % 12;
@@ -318,6 +390,49 @@ import '../styles/global.css';
                 document.querySelector('#statusC')!.textContent = '❌ Error';
             } finally {
                 if (termStatus!.textContent !== 'ERROR') termStatus!.textContent = 'IDLE';
+            }
+        }
+
+        function updateConsensus() {
+            const valid = [results.bpmA, results.bpmB, results.bpmC].filter(b => b !== null) as number[];
+            if (valid.length === 0) return;
+
+            // Simple consensus: look for values that are close to each other or multiples
+            // We want to find the most likely "true" BPM.
+            let bestBpm = valid[0];
+            
+            // Try to normalize everyone to 60-140 range for comparison
+            const normalized = valid.map(b => {
+                let n = b;
+                while (n > 150) n /= 2;
+                while (n < 60) n *= 2;
+                return n;
+            });
+
+            // Find the average of normalized values if they are close
+            // For now, let's just pick the mean of the two closest if available
+            if (normalized.length >= 2) {
+                normalized.sort((a, b) => a - b);
+                // If they are within 5% of each other, they agree!
+                if (Math.abs(normalized[1] - normalized[0]) < normalized[0] * 0.05) {
+                    bestBpm = Math.round((normalized[0] + normalized[1]) / 2);
+                } else if (normalized.length === 3 && Math.abs(normalized[2] - normalized[1]) < normalized[1] * 0.05) {
+                    bestBpm = Math.round((normalized[1] + normalized[2]) / 2);
+                } else {
+                    // No clear consensus, pick the one from Motor B (RealtimeBPM) as it's usually reliable if not doubled
+                    bestBpm = normalized[valid.indexOf(results.bpmB!)] || normalized[0];
+                }
+            } else {
+                bestBpm = normalized[0];
+            }
+
+            log(`🏆 Consenso actual: ~${bestBpm} BPM`, 'info');
+            document.querySelector('#bpmConsensus')!.textContent = bestBpm.toString();
+            
+            // For key, let's just pick Essentia's for now as it's the most robust
+            const keyA = document.querySelector('#keyA')!.textContent || '';
+            if (keyA.includes('Clave:')) {
+                document.querySelector('#keyConsensus')!.textContent = keyA;
             }
         }
     </script>
