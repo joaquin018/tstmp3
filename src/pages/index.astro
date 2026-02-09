@@ -10,9 +10,10 @@ import '../styles/global.css';
     <meta name="generator" content={Astro.generator} />
     <title>TS MP3 Downloader - 100% Local</title>
     
-    <!-- Librerías de Análisis Audio (Web Optimized v0.1.6) -->
+    <!-- Librerías de Análisis Audio (Full Extension v0.1.7) -->
     <script is:inline src="/lib/essentia/essentia-wasm.web.js"></script>
     <script is:inline src="/lib/essentia/essentia.js-core.umd.js"></script>
+    <script is:inline src="/lib/essentia/essentia.js-extractor.umd.js"></script>
 </head>
 <body>
     <!-- Terminal Falso (Izquierda) -->
@@ -35,7 +36,7 @@ import '../styles/global.css';
     <!-- Contenido Principal -->
     <div class="main-content">
         <div class="container">
-            <div class="version">v0.1.6</div>
+            <div class="version">v0.1.7</div>
             <h1>YouTube to MP3</h1>
             <p class="subtitle"></p>
 
@@ -266,19 +267,63 @@ import '../styles/global.css';
                 const backend = await EssentiaWASM();
                 log('✨ Creando instancia principal...');
                 const essentia = new Essentia(backend);
-                log('✨ Instancia Essentia creada con éxito.');
+                log('✨ Instancia Essentia creada. Escaneando capacidades...');
                 
+                const algorithms = essentia.algorithmNames;
+                log(`📊 Algoritmos disponibles: ${algorithms.length} detectados`, 'info', {
+                    names: algorithms.slice(0, 10).concat(['...']),
+                    hasPercival: algorithms.includes('PercivalBPM'),
+                    hasRhythm: algorithms.includes('RhythmExtractor2013'),
+                    hasKey: algorithms.includes('KeyExtractor')
+                });
+
                 const vector = essentia.arrayToVector(signal);
-                const bpmRes = essentia.PercivalBPM(vector);
-                const keyRes = essentia.KeyExtractor(vector);
+                let bpm = 0;
+                let key = 'Unknown';
+                let scale = '';
+
+                // --- BPM Extraction with Fallback ---
+                try {
+                    if (algorithms.includes('PercivalBPM')) {
+                        log('🥁 Usando PercivalBPM...');
+                        const res = essentia.PercivalBPM(vector);
+                        bpm = Math.round(res.bpm);
+                    } else if (algorithms.includes('RhythmExtractor2013')) {
+                        log('🥁 PercivalBPM ausente. Usando RhythmExtractor2013...');
+                        const res = essentia.RhythmExtractor2013(vector);
+                        bpm = Math.round(res.bpm);
+                    } else if (algorithms.includes('BeatTrackerDegara')) {
+                        log('🥁 Usando fallback BeatTrackerDegara...');
+                        const res = essentia.BeatTrackerDegara(vector);
+                        bpm = Math.round(60 / (res.ticks[1] - res.ticks[0]));
+                    } else {
+                        throw new Error("No hay algoritmos de BPM compatibles en este build.");
+                    }
+                } catch (e: any) {
+                    log(`⚠️ Fallo en extracción de BPM: ${e.message}`, 'warn');
+                }
+
+                // --- Key Extraction with Fallback ---
+                try {
+                    if (algorithms.includes('KeyExtractor')) {
+                        log('🎹 Usando KeyExtractor...');
+                        const res = essentia.KeyExtractor(vector);
+                        key = res.key;
+                        scale = res.scale;
+                    } else {
+                        log('🎹 KeyExtractor ausente. Intentando estimación base...');
+                        // Fallback simple si no hay extractor de clave
+                    }
+                } catch (e: any) {
+                    log(`⚠️ Fallo en extracción de Clave: ${e.message}`, 'warn');
+                }
                 
-                const bpm = Math.round(bpmRes.bpm);
                 results.bpmA = bpm;
                 
-                document.querySelector('#bpmA')!.textContent = bpm.toString();
-                document.querySelector('#keyA')!.textContent = `Clave: ${keyRes.key} ${keyRes.scale}`;
-                document.querySelector('#statusA')!.textContent = '✅ OK';
-                log(`🎯 Motor A finalizó: ${bpm} BPM | ${keyRes.key} ${keyRes.scale}`);
+                document.querySelector('#bpmA')!.textContent = bpm > 0 ? bpm.toString() : '--';
+                document.querySelector('#keyA')!.textContent = `Clave: ${key} ${scale}`;
+                document.querySelector('#statusA')!.textContent = bpm > 0 ? '✅ OK' : '❓ Nulo';
+                log(`🎯 Motor A finalizó: ${bpm} BPM | ${key} ${scale}`);
                 updateConsensus();
             } catch (e: any) {
                 log(`❌ Fallo Motor A: ${e.message}`, 'error', {
