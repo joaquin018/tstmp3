@@ -36,7 +36,7 @@ import '../styles/global.css';
     <!-- Contenido Principal -->
     <div class="main-content">
         <div class="container">
-            <div class="version">v0.1.7</div>
+            <div class="version">v0.1.8</div>
             <h1>YouTube to MP3</h1>
             <p class="subtitle"></p>
 
@@ -64,31 +64,31 @@ import '../styles/global.css';
             <div id="status"></div>
 
             <div id="analysisSection">
-                <h2>The Audio Analysis Lab</h2>
-                <div class="engine-card consensus" id="consensus-card">
-                    <div class="engine-name">🏆 Consenso Final</div>
-                    <div class="bpm-value" id="bpmConsensus">--</div>
-                    <div class="key-value" id="keyConsensus">Buscando acuerdo...</div>
-                </div>
+                <h2></h2>
                 <div class="analysis-grid">
                     <div class="analysis-card" id="cardA">
                         <h3>Essentia.js (A)</h3>
                         <div class="analysis-value" id="bpmA">--</div>
-                        <div class="analysis-key" id="keyA">Clave: --</div>
+                        <div class="analysis-key" id="keyA">Key: --</div>
                         <div class="analysis-status" id="statusA">Esperando...</div>
                     </div>
                     <div class="analysis-card" id="cardB">
                         <h3>Realtime BPM (B)</h3>
                         <div class="analysis-value" id="bpmB">--</div>
-                        <div class="analysis-key" id="keyB">Solo Ritmo</div>
+                        <div class="analysis-key" id="keyB">Solo BPM</div>
                         <div class="analysis-status" id="statusB">Esperando...</div>
                     </div>
                     <div class="analysis-card" id="cardC">
                         <h3>Aubio (C)</h3>
                         <div class="analysis-value" id="bpmC">--</div>
-                        <div class="analysis-key" id="keyC">Clave: --</div>
+                        <div class="analysis-key" id="keyC">Key (Aprox): --</div>
                         <div class="analysis-status" id="statusC">Esperando...</div>
                     </div>
+                </div>
+                <div class="engine-card consensus" id="consensus-card">
+                    <div class="engine-name">🏆 Consenso Final</div>
+                    <div class="bpm-value" id="bpmConsensus">BPM: --</div>
+                    <div class="key-value" id="keyConsensus">Buscando acuerdo...</div>
                 </div>
             </div>
         </div>
@@ -179,7 +179,7 @@ import '../styles/global.css';
             statusDiv.innerHTML = '<span class="loader"></span> Procesando...';
             btn.disabled = true;
             results = { bpmA: null, bpmB: null, bpmC: null };
-            document.querySelector('#bpmConsensus')!.textContent = '--';
+            document.querySelector('#bpmConsensus')!.textContent = 'BPM: --';
             document.querySelector('#keyConsensus')!.textContent = 'Buscando acuerdo...';
 
             log(`➡️ URL enviada: ${url}`);
@@ -321,9 +321,9 @@ import '../styles/global.css';
                 results.bpmA = bpm;
                 
                 document.querySelector('#bpmA')!.textContent = bpm > 0 ? bpm.toString() : '--';
-                document.querySelector('#keyA')!.textContent = `Clave: ${key} ${scale}`;
+                document.querySelector('#keyA')!.textContent = `Key: ${key} ${scale}`;
                 document.querySelector('#statusA')!.textContent = bpm > 0 ? '✅ OK' : '❓ Nulo';
-                log(`🎯 Motor A finalizó: ${bpm} BPM | ${key} ${scale}`);
+                log(`🎯 Motor A finalizó: ${bpm} BPM | Key: ${key} ${scale}`);
                 updateConsensus();
             } catch (e: any) {
                 log(`❌ Fallo Motor A: ${e.message}`, 'error', {
@@ -427,7 +427,7 @@ import '../styles/global.css';
                     const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
                     const semitone = 12 * (Math.log(avgPitch / 440) / Math.log(2)) + 69;
                     const noteIndex = Math.round(semitone) % 12;
-                    document.querySelector('#keyC')!.textContent = `Clave (Aprox): ${notes[noteIndex]}`;
+                    document.querySelector('#keyC')!.textContent = `Key (Aprox): ${notes[noteIndex]}`;
                 }
 
                 document.querySelector('#statusC')!.textContent = '✅ OK';
@@ -473,11 +473,11 @@ import '../styles/global.css';
             }
 
             log(`🏆 Consenso actual: ~${bestBpm} BPM`, 'info');
-            document.querySelector('#bpmConsensus')!.textContent = bestBpm.toString();
+            document.querySelector('#bpmConsensus')!.textContent = 'BPM: ' + bestBpm.toString();
             
             // For key, let's just pick Essentia's for now as it's the most robust
             const keyA = document.querySelector('#keyA')!.textContent || '';
-            if (keyA.includes('Clave:')) {
+            if (keyA.includes('Key:')) {
                 document.querySelector('#keyConsensus')!.textContent = keyA;
             }
         }
