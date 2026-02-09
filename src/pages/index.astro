@@ -12,7 +12,7 @@ import '../styles/global.css';
 </head>
 <body>
     <div class="container">
-        <div class="version">v0.0.5</div>
+        <div class="version">v0.0.6</div>
         <h1>YouTube to MP3</h1>
         <p class="subtitle"></p>
 
@@ -140,7 +140,7 @@ import '../styles/global.css';
                     statusDiv.className = 'status-error';
                     statusDiv.innerHTML = `❌ Error: ${result.error || 'Algo salió mal'}`;
                 }
-            } catch (err) {
+            } catch (err: any) {
                 statusDiv.className = 'status-error';
                 statusDiv.innerHTML = `❌ Error de red o servidor: ${err.message}`;
             } finally {
@@ -156,7 +156,8 @@ import '../styles/global.css';
             // Reset UI for each engine
             ['A', 'B', 'C'].forEach(id => {
                 document.querySelector(`#bpm${id}`)!.textContent = '...';
-                document.querySelector(`#status${id}`)!.textContent = 'Analizando...';
+                document.querySelector(`#key${id}`)! .textContent = id === 'B' ? 'Solo Ritmo' : 'Clave: --';
+                document.querySelector(`#status${id}`)!.textContent = 'Cargando motor...';
             });
 
             try {
@@ -166,6 +167,7 @@ import '../styles/global.css';
 
                 // 2. Decode Audio Data
                 const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+                document.querySelector('#statusA')!.textContent = 'Decodificando audio...';
                 const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
                 const channelData = audioBuffer.getChannelData(0); // Mono signal for analysis
 
@@ -175,9 +177,9 @@ import '../styles/global.css';
                 runAubio(channelData, audioBuffer.sampleRate);
 
             } catch (err: any) {
-                console.error('Análisis fallido:', err);
+                console.error('Error de carga de audio:', err);
                 ['A', 'B', 'C'].forEach(id => {
-                    document.querySelector(`#status${id}`)!.textContent = 'Error';
+                    document.querySelector(`#status${id}`)!.textContent = 'Error carga';
                 });
             }
         }
@@ -187,23 +189,25 @@ import '../styles/global.css';
             const status = document.querySelector('#statusA')!;
             const bpmVal = document.querySelector('#bpmA')!;
             const keyVal = document.querySelector('#keyA')!;
+            status.textContent = 'Analizando...';
 
             try {
-                // Dynamically import to keep main bundle light
-                const { Essentia, EssentiaWASM } = await import('essentia.js');
-                const essentia = new Essentia(EssentiaWASM);
+                // Better import strategy for Essentia in Vite
+                const EssentiaLib: any = await import('essentia.js');
+                const essentia = new EssentiaLib.Essentia(EssentiaLib.EssentiaWASM);
                 
                 // Convert Float32Array to Essentia-compatible vector if needed
                 // But Essentia.js often accepts Float32Array directly
-                const results = essentia.PercivalBPM(essentia.arrayToVector(signal));
-                const keyData = essentia.KeyExtractor(essentia.arrayToVector(signal));
+                const vector = essentia.arrayToVector(signal);
+                const results = essentia.PercivalBPM(vector);
+                const keyData = essentia.KeyExtractor(vector);
 
                 bpmVal.textContent = Math.round(results.bpm).toString();
                 keyVal.textContent = `Clave: ${keyData.key} ${keyData.scale}`;
                 status.textContent = '✅ Finalizado';
-            } catch (e) {
+            } catch (e: any) {
                 console.error('Essentia Error:', e);
-                status.textContent = '❌ Falló';
+                status.textContent = '❌ ' + (e.message || 'Error').substring(0, 15);
             }
         }
 
@@ -211,20 +215,22 @@ import '../styles/global.css';
         async function runRealtimeBPM(audioBuffer: AudioBuffer) {
             const status = document.querySelector('#statusB')!;
             const bpmVal = document.querySelector('#bpmB')!;
+            status.textContent = 'Analizando...';
 
             try {
-                const { analyze } = await import('realtime-bpm-analyzer');
-                const bpmResults = await analyze(audioBuffer);
+                const RealtimeBPM: any = await import('realtime-bpm-analyzer');
+                // Realtime BPM Analyzer changed its API in recent versions
+                const results = await RealtimeBPM.analyze(audioBuffer);
                 
-                if (bpmResults && bpmResults.length > 0) {
-                    bpmVal.textContent = Math.round(bpmResults[0].tempo).toString();
+                if (results && results.length > 0) {
+                    bpmVal.textContent = Math.round(results[0].tempo).toString();
                     status.textContent = '✅ Finalizado';
                 } else {
-                    status.textContent = '❓ Sin resultado';
+                    status.textContent = '❓ Sin datos';
                 }
-            } catch (e) {
+            } catch (e: any) {
                 console.error('RealtimeBPM Error:', e);
-                status.textContent = '❌ Falló';
+                status.textContent = '❌ ' + (e.message || 'Error').substring(0, 15);
             }
         }
 
@@ -232,36 +238,37 @@ import '../styles/global.css';
         async function runAubio(signal: Float32Array, sampleRate: number) {
             const status = document.querySelector('#statusC')!;
             const bpmVal = document.querySelector('#bpmC')!;
-            const keyVal = document.querySelector('#keyC')!;
+            status.textContent = 'Analizando...';
 
             try {
                 // @ts-ignore
                 const aubiojs = (await import('aubiojs')).default;
                 const aubio = await aubiojs();
                 
-                const winSize = 1024;
+                const winSize = 2048; // Aumentado para mayor precisión
                 const hopSize = 512;
                 
                 const tempo = new aubio.Tempo(winSize, hopSize, sampleRate);
-                const pitch = new aubio.Pitch('default', winSize, hopSize, sampleRate);
                 
                 // Aubio works by frames
-                let lastBpm = 0;
+                let detectedBpm = 0;
+                let count = 0;
+                
                 for (let i = 0; i < signal.length; i += hopSize) {
                     const frame = signal.slice(i, i + hopSize);
                     if (frame.length === hopSize) {
                         if (tempo.do(frame)) {
-                            lastBpm = tempo.getBpm();
+                            detectedBpm = tempo.getBpm();
+                            count++;
                         }
                     }
                 }
                 
-                bpmVal.textContent = Math.round(lastBpm).toString();
-                keyVal.textContent = "Clave: Analizando..."; // Aubio key detection is separate
+                bpmVal.textContent = Math.round(detectedBpm).toString();
                 status.textContent = '✅ Finalizado';
-            } catch (e) {
+            } catch (e: any) {
                 console.error('Aubio Error:', e);
-                status.textContent = '❌ Falló';
+                status.textContent = '❌ ' + (e.message || 'Error').substring(0, 15);
             }
         }
     </script>
