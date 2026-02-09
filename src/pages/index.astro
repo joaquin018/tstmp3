@@ -12,9 +12,14 @@ import '../styles/global.css';
 </head>
 <body>
     <div class="container">
-        <div class="version">v0.0.1</div>
+        <div class="version">v0.0.2</div>
         <h1>YouTube to MP3</h1>
         <p class="subtitle">Descargador 100% Local con Astro + yt-dlp</p>
+
+        <div id="thumbnailContainer">
+            <img id="thumbnailImg" src="" alt="Preview" />
+            <div class="thumbnail-overlay">Vista previa del video</div>
+        </div>
 
         <form id="downloadForm">
             <div class="input-group">
@@ -40,6 +45,27 @@ import '../styles/global.css';
         const statusDiv = document.querySelector('#status');
         const btn = document.querySelector('#downloadBtn');
         const btnText = document.querySelector('#btnText');
+        const urlInput = document.querySelector('#url') as HTMLInputElement;
+        const thumbContainer = document.querySelector('#thumbnailContainer') as HTMLElement;
+        const thumbImg = document.querySelector('#thumbnailImg') as HTMLImageElement;
+
+        // Function to extract YouTube ID
+        function getYouTubeID(url: string) {
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+            const match = url.match(regExp);
+            return (match && match[2].length === 11) ? match[2] : null;
+        }
+
+        urlInput?.addEventListener('input', () => {
+            const id = getYouTubeID(urlInput.value);
+            if (id) {
+                thumbImg.src = `https://img.youtube.com/vi/${id}/mqdefault.jpg`;
+                thumbContainer.style.display = 'block';
+            } else {
+                thumbContainer.style.display = 'none';
+                thumbImg.src = '';
+            }
+        });
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();

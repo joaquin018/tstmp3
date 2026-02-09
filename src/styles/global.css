@@ -43,8 +43,41 @@ body {
   top: 10px;
   right: 15px;
   font-size: 0.7rem;
-  color: #666;
+  color: var(--accent);
   font-family: monospace;
+  opacity: 0.6;
+}
+
+#thumbnailContainer {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+  display: none;
+  /* Hidden until valid URL */
+  border: 1px solid var(--border);
+  position: relative;
+}
+
+#thumbnailImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: opacity 0.3s ease;
+}
+
+.thumbnail-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 10px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+  color: white;
+  font-size: 0.8rem;
+  pointer-events: none;
 }
 
 h1 {
@@ -52,6 +85,7 @@ h1 {
   margin-bottom: 0.5rem;
   background: linear-gradient(90deg, #ff0000, #ff5555);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
   text-align: center;
 }
