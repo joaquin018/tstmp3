@@ -10,8 +10,8 @@ import '../styles/global.css';
     <meta name="generator" content={Astro.generator} />
     <title>TS MP3 Downloader - 100% Local</title>
     
-    <!-- Librerías de Análisis Audio (Locales) -->
-    <script is:inline src="/lib/essentia/essentia-wasm.umd.js"></script>
+    <!-- Librerías de Análisis Audio (Web Optimized v0.1.6) -->
+    <script is:inline src="/lib/essentia/essentia-wasm.web.js"></script>
     <script is:inline src="/lib/essentia/essentia.js-core.umd.js"></script>
 </head>
 <body>
@@ -35,7 +35,7 @@ import '../styles/global.css';
     <!-- Contenido Principal -->
     <div class="main-content">
         <div class="container">
-            <div class="version">v0.1.5</div>
+            <div class="version">v0.1.6</div>
             <h1>YouTube to MP3</h1>
             <p class="subtitle"></p>
 
@@ -251,38 +251,18 @@ import '../styles/global.css';
         };
 
         async function runEssentia(signal: Float32Array, sampleRate: number) {
-            log('🚀 Motor A (Essentia): Iniciando...');
+            log('🚀 Motor A (Essentia): Iniciando v0.1.6...');
             try {
-                // Now using global variables from CDN (is:inline)
-                let Essentia = (window as any).Essentia;
-                let EssentiaWASM = (window as any).EssentiaWASM;
-
-                // DIAGNOSTIC FALLBACK: Look into every possible corner
-                if (Essentia && !EssentiaWASM) {
-                    EssentiaWASM = Essentia.EssentiaWASM || Essentia.EssentiaJS || Essentia.WASM;
-                }
+                // In the Web build, sometimes it's just 'EssentiaWasm'
+                const Essentia = (window as any).Essentia;
+                const EssentiaWASM = (window as any).EssentiaWasm || (window as any).EssentiaWASM || (window as any).essentiaWasm;
 
                 if (!Essentia || !EssentiaWASM) {
-                    log('⏳ Escaneando entorno global (Súper Diagnóstico v0.1.5)...', 'warn');
-                    const allGlobals = Object.keys(window);
-                    const eGlobals = allGlobals.filter(k => k.toLowerCase().startsWith('e'));
-                    const essentiaProps = Essentia ? Object.keys(Essentia).filter(k => k.toLowerCase().includes('wasm') || k.toLowerCase().includes('js')) : [];
-                    
-                    log('🔍 Reporte de búsqueda:', 'info', {
-                        foundGlobals: eGlobals,
-                        essentiaInternalProps: essentiaProps,
-                        scriptNodes: Array.from(document.querySelectorAll('script')).map(s => (s as any).src || 'inline')
-                    });
-
-                    // One last attempt searching for common aliases
-                    EssentiaWASM = (window as any).EssentiaWasm || (window as any).essentiaWasm || (window as any).essentia;
+                    throw new Error("No se encontró el constructor de Essentia. Revisa la consola.");
                 }
 
-                if (!Essentia || !EssentiaWASM) {
-                    throw new Error(`Motor A no pudo vincularse en v0.1.5. Revisa el log de diagnóstico arriba.`);
-                }
-
-                log('⚙️ Inicializando backend WASM...');
+                log('⚙️ Inicializando backend WASM v0.1.6...');
+                // The web version often exports a factory that auto-loads the .wasm
                 const backend = await EssentiaWASM();
                 log('✨ Creando instancia principal...');
                 const essentia = new Essentia(backend);
