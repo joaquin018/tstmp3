@@ -25,7 +25,7 @@ import '../styles/global.css';
     <!-- Contenido Principal -->
     <div class="main-content">
         <div class="container">
-            <div class="version">v0.1.0</div>
+            <div class="version">v0.1.1</div>
             <h1>YouTube to MP3</h1>
             <p class="subtitle"></p>
 
@@ -111,7 +111,7 @@ import '../styles/global.css';
             if (id) {
                 thumbImg.src = `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
                 thumbContainer.style.display = 'block';
-                log(`Video ID detectado: ${id}`);
+                log(`Video detectado: ${id}`);
             } else {
                 thumbContainer.style.display = 'none';
             }
@@ -124,9 +124,9 @@ import '../styles/global.css';
 
             statusDiv.style.display = 'block';
             statusDiv.className = 'status-info';
-            statusDiv.innerHTML = '<span class="loader"></span> Descargando...';
+            statusDiv.innerHTML = '<span class="loader"></span> Procesando...';
             btn.disabled = true;
-            log(`Iniciando descarga: ${url}`);
+            log(`➡️ URL enviada: ${url}`);
 
             try {
                 const response = await fetch('/api/download', {
@@ -139,16 +139,16 @@ import '../styles/global.css';
 
                 if (response.ok) {
                     statusDiv.className = 'status-success';
-                    statusDiv.innerHTML = `✅ ¡Descarga completada!`;
-                    log('Descarga OK. Iniciando proceso de laboratorio.');
+                    statusDiv.innerHTML = `✅ Descarga completada`;
+                    log('✅ MP3 listo en servidor. Lanzando Laboratorio...');
                     startAnalysis(result.filename);
                 } else {
                     statusDiv.className = 'status-error';
                     statusDiv.innerHTML = `❌ Error: ${result.error}`;
-                    log(`Error: ${result.error}`, 'error');
+                    log(`❌ Error servidor: ${result.error}`, 'error');
                 }
             } catch (err: any) {
-                log(`Error de red: ${err.message}`, 'error');
+                log(`❌ Error de red: ${err.message}`, 'error');
             } finally {
                 btn.disabled = false;
                 btnText.textContent = 'Descargar MP3';
@@ -159,7 +159,6 @@ import '../styles/global.css';
             const analysisSection = document.querySelector('#analysisSection') as HTMLElement;
             analysisSection.style.display = 'block';
             termStatus!.textContent = 'BUSY';
-            log(`Analizando archivo: ${filename}`);
 
             ['A', 'B', 'C'].forEach(id => {
                 document.querySelector(`#bpm${id}`)!.textContent = '...';
@@ -167,44 +166,47 @@ import '../styles/global.css';
             });
 
             try {
-                log('Obteniendo buffet de audio...');
+                log(`📥 Descargando buffet: ${filename}`);
                 const response = await fetch(`/api/get-audio?filename=${encodeURIComponent(filename)}`);
                 const arrayBuffer = await response.arrayBuffer();
 
                 const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 44100 });
-                log('Decodificando (puede tardar)...');
+                log('🧠 Decodificando audio (CPU intensivo)...');
                 const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
                 const channelData = audioBuffer.getChannelData(0);
-                log(`Audio decodificado. Duración: ${Math.round(audioBuffer.duration)}s`);
+                log(`📊 Audio decodificado. Duración: ${Math.round(audioBuffer.duration)}s @ 44.1kHz`);
 
                 runEssentia(channelData, audioBuffer.sampleRate);
                 runRealtimeBPM(audioBuffer);
                 runAubio(channelData, audioBuffer.sampleRate);
 
             } catch (err: any) {
-                log(`Fallo crítico: ${err.message}`, 'error');
+                log(`🛑 Fallo en decodificación: ${err.message}`, 'error');
                 termStatus!.textContent = 'ERROR';
             }
         }
 
-        // --- Motores (Fixes v0.1.0) ---
+        // --- Motores (Fixes v0.1.1) ---
 
         async function runEssentia(signal: Float32Array, sampleRate: number) {
-            log('Cargando Motor A (Essentia)...');
+            log('🚀 Motor A (Essentia): Iniciando...');
             try {
-                // Essentia v0.1.3 exported via CJS/UMD
+                // Essentia browser initialization is tricky with ESM
                 const mod: any = await import('essentia.js');
-                log('Módulo Essentia importado. Buscando constructor...');
                 
-                // Handle different interop scenarios
-                const Essentia = mod.Essentia || mod.default?.Essentia;
+                // Helper to find constructors in the module
+                const Essentia = mod.Essentia || mod.default?.Essentia || (mod.default && mod.default);
                 const EssentiaWASM = mod.EssentiaWASM || mod.default?.EssentiaWASM;
 
-                if (!Essentia) throw new Error('No se encontró el constructor Essentia');
+                log(`🔍 Diagnóstico A: mod type=${typeof mod}, hasEssentia=${!!Essentia}`);
                 
+                if (typeof Essentia !== 'function') {
+                   throw new Error(`${typeof Essentia} is not a constructor (check module structure)`);
+                }
+
                 const essentia = new Essentia(EssentiaWASM);
-                log('Instancia de Essentia creada.');
-                
+                log('✨ Instancia Essentia creada con éxito.');
+
                 const vector = essentia.arrayToVector(signal);
                 const bpmRes = essentia.PercivalBPM(vector);
                 const keyRes = essentia.KeyExtractor(vector);
@@ -212,77 +214,108 @@ import '../styles/global.css';
                 document.querySelector('#bpmA')!.textContent = Math.round(bpmRes.bpm).toString();
                 document.querySelector('#keyA')!.textContent = `Clave: ${keyRes.key} ${keyRes.scale}`;
                 document.querySelector('#statusA')!.textContent = '✅ OK';
-                log(`Motor A listo: ${Math.round(bpmRes.bpm)} BPM`);
+                log(`🎯 Motor A finalizó: ${Math.round(bpmRes.bpm)} BPM | ${keyRes.key} ${keyRes.scale}`);
             } catch (e: any) {
-                log(`Error Motor A: ${e.message}`, 'error');
-                document.querySelector('#statusA')!.textContent = '❌ Falló';
+                log(`❌ Fallo Motor A: ${e.message}`, 'error');
+                document.querySelector('#statusA')!.textContent = '❌ Error';
             }
         }
 
         async function runRealtimeBPM(audioBuffer: AudioBuffer) {
-            log('Cargando Motor B (Realtime)...');
+            log('🚀 Motor B (RealtimeBPM): Iniciando...');
             try {
                 const mod: any = await import('realtime-bpm-analyzer');
-                log('Módulo RealtimeBPM importado.');
-                
-                // v5 uses named exports or default
-                const analyze = mod.analyze || mod.default?.analyze;
-                if (!analyze) throw new Error('No se encontró la función analyze');
+                const analyzeFullBuffer = mod.analyzeFullBuffer || mod.default?.analyzeFullBuffer;
 
-                const results = await analyze(audioBuffer);
+                log(`🔍 Diagnóstico B: mod type=${typeof mod}, hasAnalyze=${!!analyzeFullBuffer}`);
+
+                if (!analyzeFullBuffer) {
+                    throw new Error('Función analyzeFullBuffer no encontrada en el módulo.');
+                }
+
+                const results = await analyzeFullBuffer(audioBuffer);
                 if (results && results.length > 0) {
-                    document.querySelector('#bpmB')!.textContent = Math.round(results[0].tempo).toString();
+                    const best = results[0];
+                    document.querySelector('#bpmB')!.textContent = Math.round(best.tempo).toString();
                     document.querySelector('#statusB')!.textContent = '✅ OK';
-                    log(`Motor B listo: ${Math.round(results[0].tempo)} BPM`);
+                    log(`🎯 Motor B finalizó: ${Math.round(best.tempo)} BPM (Confianza: ${best.count})`);
                 } else {
-                    log('Motor B: No se detectaron picos.', 'warn');
+                    log('⚠️ Motor B no detectó ritmo claro.', 'warn');
                     document.querySelector('#statusB')!.textContent = '❓ Nulo';
                 }
             } catch (e: any) {
-                log(`Error Motor B: ${e.message}`, 'error');
-                document.querySelector('#statusB')!.textContent = '❌ Falló';
+                log(`❌ Fallo Motor B: ${e.message}`, 'error');
+                document.querySelector('#statusB')!.textContent = '❌ Error';
             }
         }
 
         async function runAubio(signal: Float32Array, sampleRate: number) {
-            log('Cargando Motor C (Aubio)...');
+            log('🚀 Motor C (Aubio): Iniciando...');
             try {
                 const aubiojs = (await import('aubiojs')).default;
                 const aubio = await aubiojs();
                 
-                // Usamos una ventana de 2048 para más estabilidad
+                // Parámetros para mayor precisión
                 const winSize = 2048;
                 const hopSize = 512;
-                const tempo = new aubio.Tempo(winSize, hopSize, sampleRate);
                 
+                // 1. Detección de BPM
+                const tempo = new aubio.Tempo(winSize, hopSize, sampleRate);
                 let bpms: number[] = [];
+                
+                // 2. Detección de Pitch (para Clave aproximada)
+                const pitch = new aubio.Pitch('default', winSize, hopSize, sampleRate);
+                let pitches: number[] = [];
+
                 for (let i = 0; i < signal.length; i += hopSize) {
                     const frame = signal.slice(i, i + hopSize);
                     if (frame.length === hopSize) {
+                        // Tempo
                         if (tempo.do(frame)) {
                             const b = tempo.getBpm();
-                            // Filtro para evitar ruido
-                            if (b > 40 && b < 220) bpms.push(b);
+                            if (b > 30 && b < 250) bpms.push(b);
                         }
+                        // Pitch
+                        const p = pitch.do(frame);
+                        if (p > 50 && p < 2000) pitches.push(p);
                     }
                 }
                 
+                // Procesar BPM
                 if (bpms.length > 0) {
-                    bpms.sort((a, b) => a - b);
-                    const median = bpms[Math.floor(bpms.length / 2)];
+                    bpms.sort((a,b) => a-b);
+                    let median = bpms[Math.floor(bpms.length / 2)];
                     
-                    // Si el BPM detectado es sospechoso (ej. 126 cuando es 83), intentamos detectar armónicos
-                    // Pero por ahora, reportamos la mediana pura.
-                    log(`Motor C detectó ${bpms.length} picos. Mediana: ${median.toFixed(1)}`);
+                    // HEURÍSTICA: Si la mediana está cerca de 126 y sospechamos de un armónico de 84
+                    // (126 es 1.5x de 84). Comprobamos si hay muchos valores cerca de 84.
+                    const tolerance = 5;
+                    const possibleLower = (median * 2) / 3; // 126 -> 84
+                    const candidatesLower = bpms.filter(b => Math.abs(b - possibleLower) < tolerance);
                     
+                    if (candidatesLower.length > bpms.length * 0.2) {
+                        log(`💡 Motor C: Detectada posible armonía. Ajustando ${median.toFixed(1)} -> ${possibleLower.toFixed(1)}`);
+                        median = possibleLower;
+                    }
+
                     document.querySelector('#bpmC')!.textContent = Math.round(median).toString();
-                    document.querySelector('#statusC')!.textContent = '✅ OK';
-                } else {
-                    log('Motor C: Nulo', 'warn');
+                    log(`🎯 Motor C finalizó: ${Math.round(median)} BPM`);
                 }
+
+                // Procesar Pitch (Clave muy aproximada)
+                if (pitches.length > 0) {
+                    pitches.sort((a,b) => a-b);
+                    const avgPitch = pitches[Math.floor(pitches.length/2)];
+                    // Convertir Hz a nota (simplificado)
+                    const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+                    const semitone = 12 * (Math.log(avgPitch / 440) / Math.log(2)) + 69;
+                    const noteIndex = Math.round(semitone) % 12;
+                    document.querySelector('#keyC')!.textContent = `Clave (Aprox): ${notes[noteIndex]}`;
+                }
+
+                document.querySelector('#statusC')!.textContent = '✅ OK';
             } catch (e: any) {
-                log(`Error Motor C: ${e.message}`, 'error');
-                document.querySelector('#statusC')!.textContent = '❌ Falló';
+                log(`❌ Fallo Motor C: ${e.message}`, 'error');
+                document.querySelector('#statusC')!.textContent = '❌ Error';
             } finally {
                 if (termStatus!.textContent !== 'ERROR') termStatus!.textContent = 'IDLE';
             }
