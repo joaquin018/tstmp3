@@ -12,7 +12,7 @@ import '../styles/global.css';
 </head>
 <body>
     <div class="container">
-        <div class="version">v0.0.6</div>
+        <div class="version">v0.0.7</div>
         <h1>YouTube to MP3</h1>
         <p class="subtitle"></p>
 
@@ -96,8 +96,6 @@ import '../styles/global.css';
             const urlInput = document.querySelector('#url');
             const url = urlInput ? (urlInput as HTMLInputElement).value : '';
 
-            console.log('Sending URL:', url);
-
             if (!url) {
                 statusDiv.style.display = 'block';
                 statusDiv.className = 'status-error';
@@ -105,7 +103,6 @@ import '../styles/global.css';
                 return;
             }
 
-            // Reset UI
             statusDiv.style.display = 'block';
             statusDiv.className = 'status-info';
             statusDiv.innerHTML = '<span class="loader"></span> Procesando descarga...';
@@ -114,27 +111,16 @@ import '../styles/global.css';
             try {
                 const response = await fetch('/api/download', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ url })
                 });
 
                 const text = await response.text();
-                console.log('Server response raw:', text);
-                
-                let result;
-                try {
-                    result = JSON.parse(text);
-                } catch (e) {
-                    throw new Error('Servidor no devolvió JSON: ' + text.substring(0, 100));
-                }
+                let result = JSON.parse(text);
 
                 if (response.ok) {
                     statusDiv.className = 'status-success';
-                    statusDiv.innerHTML = `✅ ¡Descarga completada! Archivo guardado: <strong>${result.filename}</strong>`;
-                    
-                    // Start Analysis
+                    statusDiv.innerHTML = `✅ ¡Descarga completada! Archivo guardado.`;
                     startAnalysis(result.filename);
                 } else {
                     statusDiv.className = 'status-error';
@@ -142,7 +128,7 @@ import '../styles/global.css';
                 }
             } catch (err: any) {
                 statusDiv.className = 'status-error';
-                statusDiv.innerHTML = `❌ Error de red o servidor: ${err.message}`;
+                statusDiv.innerHTML = `❌ Error: ${err.message}`;
             } finally {
                 btn.disabled = false;
                 btnText.textContent = 'Descargar MP3';
@@ -153,34 +139,27 @@ import '../styles/global.css';
             const analysisSection = document.querySelector('#analysisSection') as HTMLElement;
             analysisSection.style.display = 'block';
 
-            // Reset UI for each engine
             ['A', 'B', 'C'].forEach(id => {
                 document.querySelector(`#bpm${id}`)!.textContent = '...';
                 document.querySelector(`#key${id}`)! .textContent = id === 'B' ? 'Solo Ritmo' : 'Clave: --';
-                document.querySelector(`#status${id}`)!.textContent = 'Cargando motor...';
+                document.querySelector(`#status${id}`)!.textContent = 'Cargando...';
             });
 
             try {
-                // 1. Fetch the audio file
                 const response = await fetch(`/api/get-audio?filename=${encodeURIComponent(filename)}`);
                 const arrayBuffer = await response.arrayBuffer();
 
-                // 2. Decode Audio Data
-                const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-                document.querySelector('#statusA')!.textContent = 'Decodificando audio...';
+                const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 44100 });
+                document.querySelector('#statusA')!.textContent = 'Decodificando...';
                 const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-                const channelData = audioBuffer.getChannelData(0); // Mono signal for analysis
+                const channelData = audioBuffer.getChannelData(0);
 
-                // 3. Run Analysis in Parallel
                 runEssentia(channelData, audioBuffer.sampleRate);
                 runRealtimeBPM(audioBuffer);
                 runAubio(channelData, audioBuffer.sampleRate);
 
             } catch (err: any) {
-                console.error('Error de carga de audio:', err);
-                ['A', 'B', 'C'].forEach(id => {
-                    document.querySelector(`#status${id}`)!.textContent = 'Error carga';
-                });
+                console.error('Análisis fallido:', err);
             }
         }
 
@@ -192,12 +171,11 @@ import '../styles/global.css';
             status.textContent = 'Analizando...';
 
             try {
-                // Better import strategy for Essentia in Vite
-                const EssentiaLib: any = await import('essentia.js');
-                const essentia = new EssentiaLib.Essentia(EssentiaLib.EssentiaWASM);
+                // Using specific distribution files to avoid dynamic import issues
+                const { Essentia } = await import('essentia.js/dist/essentia.js-core.es.js');
+                const { EssentiaWASM } = await import('essentia.js/dist/essentia-wasm.es.js');
                 
-                // Convert Float32Array to Essentia-compatible vector if needed
-                // But Essentia.js often accepts Float32Array directly
+                const essentia = new Essentia(EssentiaWASM);
                 const vector = essentia.arrayToVector(signal);
                 const results = essentia.PercivalBPM(vector);
                 const keyData = essentia.KeyExtractor(vector);
@@ -206,8 +184,7 @@ import '../styles/global.css';
                 keyVal.textContent = `Clave: ${keyData.key} ${keyData.scale}`;
                 status.textContent = '✅ Finalizado';
             } catch (e: any) {
-                console.error('Essentia Error:', e);
-                status.textContent = '❌ ' + (e.message || 'Error').substring(0, 15);
+                status.textContent = '❌ Error Motor A';
             }
         }
 
@@ -218,10 +195,11 @@ import '../styles/global.css';
             status.textContent = 'Analizando...';
 
             try {
-                const RealtimeBPM: any = await import('realtime-bpm-analyzer');
-                // Realtime BPM Analyzer changed its API in recent versions
-                const results = await RealtimeBPM.analyze(audioBuffer);
+                const RealtimeMod: any = await import('realtime-bpm-analyzer');
+                // The analyze function might be under a property or part of the export
+                const analyzeFn = RealtimeMod.analyze || RealtimeMod.default?.analyze;
                 
+                const results = await analyzeFn(audioBuffer);
                 if (results && results.length > 0) {
                     bpmVal.textContent = Math.round(results[0].tempo).toString();
                     status.textContent = '✅ Finalizado';
@@ -229,8 +207,7 @@ import '../styles/global.css';
                     status.textContent = '❓ Sin datos';
                 }
             } catch (e: any) {
-                console.error('RealtimeBPM Error:', e);
-                status.textContent = '❌ ' + (e.message || 'Error').substring(0, 15);
+                status.textContent = '❌ Error Motor B';
             }
         }
 
@@ -241,34 +218,35 @@ import '../styles/global.css';
             status.textContent = 'Analizando...';
 
             try {
-                // @ts-ignore
                 const aubiojs = (await import('aubiojs')).default;
                 const aubio = await aubiojs();
                 
-                const winSize = 2048; // Aumentado para mayor precisión
+                const winSize = 2048;
                 const hopSize = 512;
-                
                 const tempo = new aubio.Tempo(winSize, hopSize, sampleRate);
                 
-                // Aubio works by frames
-                let detectedBpm = 0;
-                let count = 0;
-                
+                let bpms: number[] = [];
                 for (let i = 0; i < signal.length; i += hopSize) {
                     const frame = signal.slice(i, i + hopSize);
                     if (frame.length === hopSize) {
                         if (tempo.do(frame)) {
-                            detectedBpm = tempo.getBpm();
-                            count++;
+                            const b = tempo.getBpm();
+                            if (b > 30 && b < 300) bpms.push(b);
                         }
                     }
                 }
                 
-                bpmVal.textContent = Math.round(detectedBpm).toString();
-                status.textContent = '✅ Finalizado';
+                if (bpms.length > 0) {
+                    // Calculate Median for better accuracy
+                    bpms.sort((a, b) => a - b);
+                    const median = bpms[Math.floor(bpms.length / 2)];
+                    bpmVal.textContent = Math.round(median).toString();
+                    status.textContent = '✅ Finalizado';
+                } else {
+                    status.textContent = '❓ Sin datos';
+                }
             } catch (e: any) {
-                console.error('Aubio Error:', e);
-                status.textContent = '❌ ' + (e.message || 'Error').substring(0, 15);
+                status.textContent = '❌ Error Motor C';
             }
         }
     </script>
