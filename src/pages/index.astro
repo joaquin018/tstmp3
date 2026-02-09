@@ -1,0 +1,100 @@
+---
+import '../styles/global.css';
+---
+
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="generator" content={Astro.generator} />
+    <title>TS MP3 Downloader - 100% Local</title>
+</head>
+<body>
+    <div class="container">
+        <div class="version">v0.0.1</div>
+        <h1>YouTube to MP3</h1>
+        <p class="subtitle">Descargador 100% Local con Astro + yt-dlp</p>
+
+        <form id="downloadForm">
+            <div class="input-group">
+                <label for="url">URL del Video de YouTube</label>
+                <input 
+                    type="text" 
+                    id="url" 
+                    name="url" 
+                    placeholder="https://www.youtube.com/watch?v=..." 
+                    required 
+                />
+            </div>
+            <button type="submit" id="downloadBtn">
+                <span id="btnText">Descargar MP3</span>
+            </button>
+        </form>
+
+        <div id="status"></div>
+    </div>
+
+    <script>
+        const form = document.querySelector('#downloadForm');
+        const statusDiv = document.querySelector('#status');
+        const btn = document.querySelector('#downloadBtn');
+        const btnText = document.querySelector('#btnText');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const urlInput = document.querySelector('#url');
+            const url = urlInput ? (urlInput as HTMLInputElement).value : '';
+
+            console.log('Sending URL:', url);
+
+            if (!url) {
+                statusDiv.style.display = 'block';
+                statusDiv.className = 'status-error';
+                statusDiv.innerHTML = '❌ Por favor, ingresa una URL válida.';
+                return;
+            }
+
+            // Reset UI
+            statusDiv.style.display = 'block';
+            statusDiv.className = 'status-info';
+            statusDiv.innerHTML = '<span class="loader"></span> Procesando descarga...';
+            btn.disabled = true;
+
+            try {
+                const response = await fetch('/api/download', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ url })
+                });
+
+                const text = await response.text();
+                console.log('Server response raw:', text);
+                
+                let result;
+                try {
+                    result = JSON.parse(text);
+                } catch (e) {
+                    throw new Error('Servidor no devolvió JSON: ' + text.substring(0, 100));
+                }
+
+                if (response.ok) {
+                    statusDiv.className = 'status-success';
+                    statusDiv.innerHTML = `✅ ¡Descarga completada! Archivo guardado: <strong>${result.filename}</strong>`;
+                } else {
+                    statusDiv.className = 'status-error';
+                    statusDiv.innerHTML = `❌ Error: ${result.error || 'Algo salió mal'}`;
+                }
+            } catch (err) {
+                statusDiv.className = 'status-error';
+                statusDiv.innerHTML = `❌ Error de red o servidor: ${err.message}`;
+            } finally {
+                btn.disabled = false;
+                btnText.textContent = 'Descargar MP3';
+            }
+        });
+    </script>
+</body>
+</html>

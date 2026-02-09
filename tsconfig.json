@@ -1,0 +1,12 @@
+{
+  "extends": "astro/tsconfigs/strict",
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "types": ["node"],
+    "lib": ["ESNext", "DOM"]
+  },
+  "include": [".astro/types.d.ts", "**/*"],
+  "exclude": ["node_modules", "dist"]
+}
