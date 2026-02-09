@@ -12,59 +12,88 @@ import '../styles/global.css';
 </head>
 <body>
     <div class="container">
-        <div class="version">v0.0.7</div>
-        <h1>YouTube to MP3</h1>
-        <p class="subtitle"></p>
-
-        <div id="thumbnailContainer">
-            <img id="thumbnailImg" src="" alt="Preview" />
-            <div class="thumbnail-overlay"></div>
+    <!-- Terminal Falso (Izquierda) -->
+    <div id="terminal">
+        <div class="terminal-header">
+            <span>Terminal de Análisis</span>
+            <span id="terminalStatus">IDLE</span>
         </div>
+        <div class="terminal-body" id="logContainer">
+            <div class="log-entry"><span class="log-time">[00:00:00]</span> Bienvenido al Laboratorio v0.0.8</div>
+        </div>
+    </div>
 
-        <form id="downloadForm">
-            <div class="input-group">
-                <label for="url">URL del Video de YouTube</label>
-                <input 
-                    type="text" 
-                    id="url" 
-                    name="url" 
-                    placeholder="https://www.youtube.com/watch?v=..." 
-                    required 
-                />
+    <!-- Contenido Principal -->
+    <div class="main-content">
+        <div class="container">
+            <div class="version">v0.0.8</div>
+            <h1>YouTube to MP3</h1>
+            <p class="subtitle"></p>
+
+            <div id="thumbnailContainer">
+                <img id="thumbnailImg" src="" alt="Preview" />
+                <div class="thumbnail-overlay"></div>
             </div>
-            <button type="submit" id="downloadBtn">
-                <span id="btnText">Descargar MP3</span>
-            </button>
-        </form>
 
-        <div id="status"></div>
+            <form id="downloadForm">
+                <div class="input-group">
+                    <label for="url">URL del Video de YouTube</label>
+                    <input 
+                        type="text" 
+                        id="url" 
+                        name="url" 
+                        placeholder="https://www.youtube.com/watch?v=..." 
+                        required 
+                    />
+                </div>
+                <button type="submit" id="downloadBtn">
+                    <span id="btnText">Descargar MP3</span>
+                </button>
+            </form>
 
-        <div id="analysisSection">
-            <h2>The Audio Analysis Lab</h2>
-            <div class="analysis-grid">
-                <div class="analysis-card" id="cardA">
-                    <h3>Essentia.js (A)</h3>
-                    <div class="analysis-value" id="bpmA">--</div>
-                    <div class="analysis-key" id="keyA">Clave: --</div>
-                    <div class="analysis-status" id="statusA">Esperando...</div>
-                </div>
-                <div class="analysis-card" id="cardB">
-                    <h3>Realtime BPM (B)</h3>
-                    <div class="analysis-value" id="bpmB">--</div>
-                    <div class="analysis-key" id="keyB">Solo Ritmo</div>
-                    <div class="analysis-status" id="statusB">Esperando...</div>
-                </div>
-                <div class="analysis-card" id="cardC">
-                    <h3>Aubio (C)</h3>
-                    <div class="analysis-value" id="bpmC">--</div>
-                    <div class="analysis-key" id="keyC">Clave: --</div>
-                    <div class="analysis-status" id="statusC">Esperando...</div>
+            <div id="status"></div>
+
+            <div id="analysisSection">
+                <h2>The Audio Analysis Lab</h2>
+                <div class="analysis-grid">
+                    <div class="analysis-card" id="cardA">
+                        <h3>Essentia.js (A)</h3>
+                        <div class="analysis-value" id="bpmA">--</div>
+                        <div class="analysis-key" id="keyA">Clave: --</div>
+                        <div class="analysis-status" id="statusA">Esperando...</div>
+                    </div>
+                    <div class="analysis-card" id="cardB">
+                        <h3>Realtime BPM (B)</h3>
+                        <div class="analysis-value" id="bpmB">--</div>
+                        <div class="analysis-key" id="keyB">Solo Ritmo</div>
+                        <div class="analysis-status" id="statusB">Esperando...</div>
+                    </div>
+                    <div class="analysis-card" id="cardC">
+                        <h3>Aubio (C)</h3>
+                        <div class="analysis-value" id="bpmC">--</div>
+                        <div class="analysis-key" id="keyC">Clave: --</div>
+                        <div class="analysis-status" id="statusC">Esperando...</div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
+        // --- Sistema de Logs para Terminal Falsa ---
+        const logContainer = document.querySelector('#logContainer');
+        const termStatus = document.querySelector('#terminalStatus');
+
+        function log(msg: string, type: 'info'|'warn'|'error' = 'info') {
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.innerHTML = `<span class="log-time">[${time}]</span> ${msg}`;
+            logContainer?.appendChild(entry);
+            logContainer?.scrollTo(0, logContainer.scrollHeight);
+            console.log(`[TERM] ${msg}`);
+        }
+
         const form = document.querySelector('#downloadForm');
         const statusDiv = document.querySelector('#status');
         const btn = document.querySelector('#downloadBtn');
@@ -73,7 +102,6 @@ import '../styles/global.css';
         const thumbContainer = document.querySelector('#thumbnailContainer') as HTMLElement;
         const thumbImg = document.querySelector('#thumbnailImg') as HTMLImageElement;
 
-        // Function to extract YouTube ID
         function getYouTubeID(url: string) {
             const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
             const match = url.match(regExp);
@@ -85,6 +113,7 @@ import '../styles/global.css';
             if (id) {
                 thumbImg.src = `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
                 thumbContainer.style.display = 'block';
+                log(`Detectado video ID: ${id}`);
             } else {
                 thumbContainer.style.display = 'none';
                 thumbImg.src = '';
@@ -93,20 +122,14 @@ import '../styles/global.css';
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const urlInput = document.querySelector('#url');
-            const url = urlInput ? (urlInput as HTMLInputElement).value : '';
-
-            if (!url) {
-                statusDiv.style.display = 'block';
-                statusDiv.className = 'status-error';
-                statusDiv.innerHTML = '❌ Por favor, ingresa una URL válida.';
-                return;
-            }
+            const url = urlInput.value;
+            if (!url) return;
 
             statusDiv.style.display = 'block';
             statusDiv.className = 'status-info';
             statusDiv.innerHTML = '<span class="loader"></span> Procesando descarga...';
             btn.disabled = true;
+            log(`Iniciando descarga: ${url}`);
 
             try {
                 const response = await fetch('/api/download', {
@@ -120,15 +143,18 @@ import '../styles/global.css';
 
                 if (response.ok) {
                     statusDiv.className = 'status-success';
-                    statusDiv.innerHTML = `✅ ¡Descarga completada! Archivo guardado.`;
+                    statusDiv.innerHTML = `✅ ¡Descarga completada!`;
+                    log('Descarga finalizada con éxito en el servidor.');
                     startAnalysis(result.filename);
                 } else {
                     statusDiv.className = 'status-error';
-                    statusDiv.innerHTML = `❌ Error: ${result.error || 'Algo salió mal'}`;
+                    statusDiv.innerHTML = `❌ Error: ${result.error}`;
+                    log(`Error servidor: ${result.error}`, 'error');
                 }
             } catch (err: any) {
                 statusDiv.className = 'status-error';
                 statusDiv.innerHTML = `❌ Error: ${err.message}`;
+                log(`Fallo de red: ${err.message}`, 'error');
             } finally {
                 btn.disabled = false;
                 btnText.textContent = 'Descargar MP3';
@@ -138,90 +164,85 @@ import '../styles/global.css';
         async function startAnalysis(filename: string) {
             const analysisSection = document.querySelector('#analysisSection') as HTMLElement;
             analysisSection.style.display = 'block';
+            termStatus!.textContent = 'BUSY';
+            log(`Empezando análisis de: ${filename}`);
 
             ['A', 'B', 'C'].forEach(id => {
                 document.querySelector(`#bpm${id}`)!.textContent = '...';
-                document.querySelector(`#key${id}`)! .textContent = id === 'B' ? 'Solo Ritmo' : 'Clave: --';
-                document.querySelector(`#status${id}`)!.textContent = 'Cargando...';
+                document.querySelector(`#status${id}`)!.textContent = 'Analizando...';
             });
 
             try {
+                log('Recuperando buffet de audio desde el servidor...');
                 const response = await fetch(`/api/get-audio?filename=${encodeURIComponent(filename)}`);
                 const arrayBuffer = await response.arrayBuffer();
 
                 const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 44100 });
-                document.querySelector('#statusA')!.textContent = 'Decodificando...';
+                log('Decodificando AudioData (esto puede tardar unos segundos)...');
                 const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
                 const channelData = audioBuffer.getChannelData(0);
+                log(`Audio decodificado: ${Math.round(audioBuffer.duration)}s de duración.`);
 
+                // Ejecutar en paralelo
                 runEssentia(channelData, audioBuffer.sampleRate);
                 runRealtimeBPM(audioBuffer);
                 runAubio(channelData, audioBuffer.sampleRate);
 
             } catch (err: any) {
-                console.error('Análisis fallido:', err);
+                log(`Error en Laboratorio: ${err.message}`, 'error');
+                termStatus!.textContent = 'ERROR';
             }
         }
 
-        // --- Engine A: Essentia.js ---
+        // --- Motores (Ajustados para v0.0.8) ---
         async function runEssentia(signal: Float32Array, sampleRate: number) {
-            const status = document.querySelector('#statusA')!;
-            const bpmVal = document.querySelector('#bpmA')!;
-            const keyVal = document.querySelector('#keyA')!;
-            status.textContent = 'Analizando...';
-
+            log('Iniciando Motor A (Essentia.js)...');
             try {
-                // Using specific distribution files to avoid dynamic import issues
                 const { Essentia } = await import('essentia.js/dist/essentia.js-core.es.js');
                 const { EssentiaWASM } = await import('essentia.js/dist/essentia-wasm.es.js');
-                
                 const essentia = new Essentia(EssentiaWASM);
+                
                 const vector = essentia.arrayToVector(signal);
-                const results = essentia.PercivalBPM(vector);
-                const keyData = essentia.KeyExtractor(vector);
+                const bpmRes = essentia.PercivalBPM(vector);
+                const keyRes = essentia.KeyExtractor(vector);
 
-                bpmVal.textContent = Math.round(results.bpm).toString();
-                keyVal.textContent = `Clave: ${keyData.key} ${keyData.scale}`;
-                status.textContent = '✅ Finalizado';
+                document.querySelector('#bpmA')!.textContent = Math.round(bpmRes.bpm).toString();
+                document.querySelector('#keyA')!.textContent = `Clave: ${keyRes.key} ${keyRes.scale}`;
+                document.querySelector('#statusA')!.textContent = '✅ OK';
+                log(`Essentia finalizado: ${Math.round(bpmRes.bpm)} BPM`);
             } catch (e: any) {
-                status.textContent = '❌ Error Motor A';
+                log(`Fallo Essentia: ${e.message}`, 'error');
+                document.querySelector('#statusA')!.textContent = '❌ Falló';
             }
         }
 
-        // --- Engine B: Realtime BPM Analyzer ---
         async function runRealtimeBPM(audioBuffer: AudioBuffer) {
-            const status = document.querySelector('#statusB')!;
-            const bpmVal = document.querySelector('#bpmB')!;
-            status.textContent = 'Analizando...';
-
+            log('Iniciando Motor B (Realtime BPM)...');
             try {
-                const RealtimeMod: any = await import('realtime-bpm-analyzer');
-                // The analyze function might be under a property or part of the export
-                const analyzeFn = RealtimeMod.analyze || RealtimeMod.default?.analyze;
-                
-                const results = await analyzeFn(audioBuffer);
+                const RealtimeBPM: any = await import('realtime-bpm-analyzer');
+                const results = await RealtimeBPM.analyze(audioBuffer);
                 if (results && results.length > 0) {
-                    bpmVal.textContent = Math.round(results[0].tempo).toString();
-                    status.textContent = '✅ Finalizado';
+                    document.querySelector('#bpmB')!.textContent = Math.round(results[0].tempo).toString();
+                    document.querySelector('#statusB')!.textContent = '✅ OK';
+                    log(`Realtime BPM finalizado: ${Math.round(results[0].tempo)} BPM`);
                 } else {
-                    status.textContent = '❓ Sin datos';
+                    log('Realtime BPM no encontró un patrón rítmico claro.', 'warn');
+                    document.querySelector('#statusB')!.textContent = '❓ Nulo';
                 }
             } catch (e: any) {
-                status.textContent = '❌ Error Motor B';
+                log(`Fallo Realtime BPM: ${e.message}`, 'error');
+                document.querySelector('#statusB')!.textContent = '❌ Falló';
             }
         }
 
-        // --- Engine C: Aubiojs ---
         async function runAubio(signal: Float32Array, sampleRate: number) {
-            const status = document.querySelector('#statusC')!;
-            const bpmVal = document.querySelector('#bpmC')!;
-            status.textContent = 'Analizando...';
-
+            log('Iniciando Motor C (Aubio.js)...');
             try {
                 const aubiojs = (await import('aubiojs')).default;
                 const aubio = await aubiojs();
                 
-                const winSize = 2048;
+                // Reducimos winSize para ser más sensible a tempos lentos (como 83 BPM)
+                const winSize = 1024;
                 const hopSize = 512;
                 const tempo = new aubio.Tempo(winSize, hopSize, sampleRate);
                 
@@ -231,22 +252,27 @@ import '../styles/global.css';
                     if (frame.length === hopSize) {
                         if (tempo.do(frame)) {
                             const b = tempo.getBpm();
-                            if (b > 30 && b < 300) bpms.push(b);
+                            if (b > 30 && b < 250) bpms.push(b);
                         }
                     }
                 }
                 
                 if (bpms.length > 0) {
-                    // Calculate Median for better accuracy
                     bpms.sort((a, b) => a - b);
                     const median = bpms[Math.floor(bpms.length / 2)];
-                    bpmVal.textContent = Math.round(median).toString();
-                    status.textContent = '✅ Finalizado';
+                    // LOG EXTRA: Mostrar todos los BPMs detectados para debugear
+                    log(`Aubio detección cruda: ${bpms.length} puntos. Mediana: ${median.toFixed(1)}`);
+                    
+                    document.querySelector('#bpmC')!.textContent = Math.round(median).toString();
+                    document.querySelector('#statusC')!.textContent = '✅ OK';
                 } else {
-                    status.textContent = '❓ Sin datos';
+                    log('Aubio no detectó ningún pulso.', 'warn');
                 }
             } catch (e: any) {
-                status.textContent = '❌ Error Motor C';
+                log(`Fallo Aubio: ${e.message}`, 'error');
+                document.querySelector('#statusC')!.textContent = '❌ Falló';
+            } finally {
+                termStatus!.textContent = 'IDLE';
             }
         }
     </script>
