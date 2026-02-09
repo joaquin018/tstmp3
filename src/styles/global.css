@@ -197,3 +197,62 @@ button:disabled {
     transform: rotate(360deg);
   }
 }
+
+#analysisSection {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+  display: none;
+}
+
+h2 {
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+  color: #ccc;
+  text-align: center;
+}
+
+.analysis-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+
+.analysis-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem;
+  text-align: center;
+}
+
+.analysis-card h3 {
+  font-size: 0.8rem;
+  color: var(--accent);
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.analysis-value {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin: 0.5rem 0;
+}
+
+.analysis-key {
+  font-size: 0.9rem;
+  color: #aaa;
+}
+
+.analysis-status {
+  font-size: 0.7rem;
+  margin-top: 0.5rem;
+  color: #666;
+}
+
+@media (max-width: 500px) {
+  .analysis-grid {
+    grid-template-columns: 1fr;
+  }
+}

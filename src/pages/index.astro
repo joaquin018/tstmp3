@@ -12,7 +12,7 @@ import '../styles/global.css';
 </head>
 <body>
     <div class="container">
-        <div class="version">v0.0.4</div>
+        <div class="version">v0.0.5</div>
         <h1>YouTube to MP3</h1>
         <p class="subtitle"></p>
 
@@ -38,6 +38,30 @@ import '../styles/global.css';
         </form>
 
         <div id="status"></div>
+
+        <div id="analysisSection">
+            <h2>The Audio Analysis Lab</h2>
+            <div class="analysis-grid">
+                <div class="analysis-card" id="cardA">
+                    <h3>Essentia.js (A)</h3>
+                    <div class="analysis-value" id="bpmA">--</div>
+                    <div class="analysis-key" id="keyA">Clave: --</div>
+                    <div class="analysis-status" id="statusA">Esperando...</div>
+                </div>
+                <div class="analysis-card" id="cardB">
+                    <h3>Realtime BPM (B)</h3>
+                    <div class="analysis-value" id="bpmB">--</div>
+                    <div class="analysis-key" id="keyB">Solo Ritmo</div>
+                    <div class="analysis-status" id="statusB">Esperando...</div>
+                </div>
+                <div class="analysis-card" id="cardC">
+                    <h3>Aubio (C)</h3>
+                    <div class="analysis-value" id="bpmC">--</div>
+                    <div class="analysis-key" id="keyC">Clave: --</div>
+                    <div class="analysis-status" id="statusC">Esperando...</div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -109,6 +133,9 @@ import '../styles/global.css';
                 if (response.ok) {
                     statusDiv.className = 'status-success';
                     statusDiv.innerHTML = `✅ ¡Descarga completada! Archivo guardado: <strong>${result.filename}</strong>`;
+                    
+                    // Start Analysis
+                    startAnalysis(result.filename);
                 } else {
                     statusDiv.className = 'status-error';
                     statusDiv.innerHTML = `❌ Error: ${result.error || 'Algo salió mal'}`;
@@ -121,6 +148,122 @@ import '../styles/global.css';
                 btnText.textContent = 'Descargar MP3';
             }
         });
+
+        async function startAnalysis(filename: string) {
+            const analysisSection = document.querySelector('#analysisSection') as HTMLElement;
+            analysisSection.style.display = 'block';
+
+            // Reset UI for each engine
+            ['A', 'B', 'C'].forEach(id => {
+                document.querySelector(`#bpm${id}`)!.textContent = '...';
+                document.querySelector(`#status${id}`)!.textContent = 'Analizando...';
+            });
+
+            try {
+                // 1. Fetch the audio file
+                const response = await fetch(`/api/get-audio?filename=${encodeURIComponent(filename)}`);
+                const arrayBuffer = await response.arrayBuffer();
+
+                // 2. Decode Audio Data
+                const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+                const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                const channelData = audioBuffer.getChannelData(0); // Mono signal for analysis
+
+                // 3. Run Analysis in Parallel
+                runEssentia(channelData, audioBuffer.sampleRate);
+                runRealtimeBPM(audioBuffer);
+                runAubio(channelData, audioBuffer.sampleRate);
+
+            } catch (err: any) {
+                console.error('Análisis fallido:', err);
+                ['A', 'B', 'C'].forEach(id => {
+                    document.querySelector(`#status${id}`)!.textContent = 'Error';
+                });
+            }
+        }
+
+        // --- Engine A: Essentia.js ---
+        async function runEssentia(signal: Float32Array, sampleRate: number) {
+            const status = document.querySelector('#statusA')!;
+            const bpmVal = document.querySelector('#bpmA')!;
+            const keyVal = document.querySelector('#keyA')!;
+
+            try {
+                // Dynamically import to keep main bundle light
+                const { Essentia, EssentiaWASM } = await import('essentia.js');
+                const essentia = new Essentia(EssentiaWASM);
+                
+                // Convert Float32Array to Essentia-compatible vector if needed
+                // But Essentia.js often accepts Float32Array directly
+                const results = essentia.PercivalBPM(essentia.arrayToVector(signal));
+                const keyData = essentia.KeyExtractor(essentia.arrayToVector(signal));
+
+                bpmVal.textContent = Math.round(results.bpm).toString();
+                keyVal.textContent = `Clave: ${keyData.key} ${keyData.scale}`;
+                status.textContent = '✅ Finalizado';
+            } catch (e) {
+                console.error('Essentia Error:', e);
+                status.textContent = '❌ Falló';
+            }
+        }
+
+        // --- Engine B: Realtime BPM Analyzer ---
+        async function runRealtimeBPM(audioBuffer: AudioBuffer) {
+            const status = document.querySelector('#statusB')!;
+            const bpmVal = document.querySelector('#bpmB')!;
+
+            try {
+                const { analyze } = await import('realtime-bpm-analyzer');
+                const bpmResults = await analyze(audioBuffer);
+                
+                if (bpmResults && bpmResults.length > 0) {
+                    bpmVal.textContent = Math.round(bpmResults[0].tempo).toString();
+                    status.textContent = '✅ Finalizado';
+                } else {
+                    status.textContent = '❓ Sin resultado';
+                }
+            } catch (e) {
+                console.error('RealtimeBPM Error:', e);
+                status.textContent = '❌ Falló';
+            }
+        }
+
+        // --- Engine C: Aubiojs ---
+        async function runAubio(signal: Float32Array, sampleRate: number) {
+            const status = document.querySelector('#statusC')!;
+            const bpmVal = document.querySelector('#bpmC')!;
+            const keyVal = document.querySelector('#keyC')!;
+
+            try {
+                // @ts-ignore
+                const aubiojs = (await import('aubiojs')).default;
+                const aubio = await aubiojs();
+                
+                const winSize = 1024;
+                const hopSize = 512;
+                
+                const tempo = new aubio.Tempo(winSize, hopSize, sampleRate);
+                const pitch = new aubio.Pitch('default', winSize, hopSize, sampleRate);
+                
+                // Aubio works by frames
+                let lastBpm = 0;
+                for (let i = 0; i < signal.length; i += hopSize) {
+                    const frame = signal.slice(i, i + hopSize);
+                    if (frame.length === hopSize) {
+                        if (tempo.do(frame)) {
+                            lastBpm = tempo.getBpm();
+                        }
+                    }
+                }
+                
+                bpmVal.textContent = Math.round(lastBpm).toString();
+                keyVal.textContent = "Clave: Analizando..."; // Aubio key detection is separate
+                status.textContent = '✅ Finalizado';
+            } catch (e) {
+                console.error('Aubio Error:', e);
+                status.textContent = '❌ Falló';
+            }
+        }
     </script>
 </body>
 </html>
