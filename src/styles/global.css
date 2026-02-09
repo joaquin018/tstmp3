@@ -49,16 +49,19 @@ body {
 }
 
 #thumbnailContainer {
-  width: 100%;
+  width: 240px;
+  /* Tamaño más contenido para mantener calidad */
   aspect-ratio: 16 / 9;
   background: #000;
-  border-radius: 12px;
-  margin-bottom: 1.5rem;
+  border-radius: 8px;
+  margin: 0 auto 1.5rem auto;
+  /* Centrado horizontal */
   overflow: hidden;
   display: none;
   /* Hidden until valid URL */
   border: 1px solid var(--border);
   position: relative;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
 }
 
 #thumbnailImg {

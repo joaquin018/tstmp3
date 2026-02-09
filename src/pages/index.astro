@@ -12,7 +12,7 @@ import '../styles/global.css';
 </head>
 <body>
     <div class="container">
-        <div class="version">v0.0.2</div>
+        <div class="version">v0.0.3</div>
         <h1>YouTube to MP3</h1>
         <p class="subtitle">Descargador 100% Local con Astro + yt-dlp</p>
 
@@ -59,7 +59,7 @@ import '../styles/global.css';
         urlInput?.addEventListener('input', () => {
             const id = getYouTubeID(urlInput.value);
             if (id) {
-                thumbImg.src = `https://img.youtube.com/vi/${id}/mqdefault.jpg`;
+                thumbImg.src = `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
                 thumbContainer.style.display = 'block';
             } else {
                 thumbContainer.style.display = 'none';
