@@ -9,6 +9,10 @@ import '../styles/global.css';
     <meta name="viewport" content="width=device-width" />
     <meta name="generator" content={Astro.generator} />
     <title>TS MP3 Downloader - 100% Local</title>
+    
+    <!-- Librerías de Análisis Audio (Pre-cargadas) -->
+    <script is:inline src="https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia-wasm.umd.js"></script>
+    <script is:inline src="https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia.js-core.umd.js"></script>
 </head>
 <body>
     <!-- Terminal Falso (Izquierda) -->
@@ -89,9 +93,6 @@ import '../styles/global.css';
             </div>
         </div>
     </div>
-
-    <script is:inline src="https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia-wasm.umd.js"></script>
-    <script is:inline src="https://cdn.jsdelivr.net/npm/essentia.js@0.1.3/dist/essentia.js-core.umd.js"></script>
 
     <script>
         // --- Sistema de Logs Avanzado ---
@@ -254,11 +255,25 @@ import '../styles/global.css';
             log('🚀 Motor A (Essentia): Iniciando...');
             try {
                 // Now using global variables from CDN (is:inline)
-                const Essentia = (window as any).Essentia;
-                const EssentiaWASM = (window as any).EssentiaWASM;
+                let Essentia = (window as any).Essentia;
+                let EssentiaWASM = (window as any).EssentiaWASM;
+
+                // DIAGNOSTIC FALLBACK: Some builds nest WASM inside Essentia
+                if (Essentia && !EssentiaWASM && Essentia.EssentiaWASM) {
+                    EssentiaWASM = Essentia.EssentiaWASM;
+                }
 
                 if (!Essentia || !EssentiaWASM) {
-                    throw new Error("Librerías de Essentia no cargadas. Reintenta en unos segundos.");
+                    log('⏳ Reintentando detección de motor...', 'warn');
+                    // Tiny wait to let scripts execute if needed
+                    await new Promise(r => setTimeout(r, 500));
+                    Essentia = (window as any).Essentia;
+                    EssentiaWASM = (window as any).EssentiaWASM || (Essentia ? Essentia.EssentiaWASM : null);
+                }
+
+                if (!Essentia || !EssentiaWASM) {
+                    const availableGlobals = Object.keys(window).filter(k => k.toLowerCase().includes('essentia'));
+                    throw new Error(`Motor no encontrado. Globales detectadas: [${availableGlobals.join(', ')}]`);
                 }
 
                 log('⚙️ Inicializando backend WASM...');
