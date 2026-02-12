@@ -10,10 +10,15 @@ import '../styles/global.css';
     <meta name="generator" content={Astro.generator} />
     <title>TS MP3 Downloader - 100% Local</title>
     
-    <!-- Librerías de Análisis Audio (Full Extension v0.1.7) -->
-    <script is:inline src="/lib/essentia/essentia-wasm.web.js"></script>
+    <!-- Librerías de Análisis Audio (Neural Edition v0.2.0) -->
+    <script is:inline src="/lib/tfjs/tf.min.js"></script>
+    <script is:inline>
+        window.exports = window.exports || {};
+    </script>
+    <script is:inline src="/lib/essentia/essentia-wasm.umd.js"></script>
     <script is:inline src="/lib/essentia/essentia.js-core.umd.js"></script>
     <script is:inline src="/lib/essentia/essentia.js-extractor.umd.js"></script>
+    <script is:inline src="/lib/essentia/essentia.js-model.umd.js"></script>
 </head>
 <body>
     <!-- Terminal Falso (Izquierda) -->
@@ -36,7 +41,7 @@ import '../styles/global.css';
     <!-- Contenido Principal -->
     <div class="main-content">
         <div class="container">
-            <div class="version">v0.1.8</div>
+            <div class="version">v0.2.1</div>
             <h1>YouTube to MP3</h1>
             <p class="subtitle"></p>
 
@@ -79,9 +84,9 @@ import '../styles/global.css';
                         <div class="analysis-status" id="statusB">Esperando...</div>
                     </div>
                     <div class="analysis-card" id="cardC">
-                        <h3>Aubio (C)</h3>
+                        <h3>Essentia AI (C)</h3>
                         <div class="analysis-value" id="bpmC">--</div>
-                        <div class="analysis-key" id="keyC">Key (Aprox): --</div>
+                        <div class="analysis-key" id="keyC">Neural Unit</div>
                         <div class="analysis-status" id="statusC">Esperando...</div>
                     </div>
                 </div>
@@ -234,7 +239,7 @@ import '../styles/global.css';
 
                 runEssentia(channelData, audioBuffer.sampleRate);
                 runRealtimeBPM(audioBuffer);
-                runAubio(channelData, audioBuffer.sampleRate);
+                runEssentiaAI(channelData, audioBuffer.sampleRate);
 
             } catch (err: any) {
                 log(`🛑 Fallo en decodificación: ${err.message}`, 'error');
@@ -256,17 +261,35 @@ import '../styles/global.css';
             try {
                 // In the Web build, sometimes it's just 'EssentiaWasm'
                 const Essentia = (window as any).Essentia;
-                const EssentiaWASM = (window as any).EssentiaWasm || (window as any).EssentiaWASM || (window as any).essentiaWasm;
+                const gWasm = (window as any).EssentiaWasm;
+                const gWASM = (window as any).EssentiaWASM;
+                const g_wasm = (window as any).essentiaWasm;
+                const gExportsWASM = (window as any).exports?.EssentiaWASM;
+                const gModule = (window as any).Module;
+                
+                const Factory = gWasm || gWASM || g_wasm || gExportsWASM || gModule;
 
-                if (!Essentia || !EssentiaWASM) {
-                    throw new Error("No se encontró el constructor de Essentia. Revisa la consola.");
+                if (!Factory) {
+                    throw new Error("No se encontró EssentiaWasm en el objeto global.");
                 }
 
-                log('⚙️ Inicializando backend WASM v0.1.6...');
-                // The web version often exports a factory that auto-loads the .wasm
-                const backend = await EssentiaWASM();
+                log('⚙️ Inicializando backend WASM v0.1.8...', 'info', {
+                    backend: typeof Factory
+                });
+                
+                let backend;
+                if (typeof Factory === 'function') {
+                    backend = await Factory();
+                } else if (typeof Factory === 'object') {
+                    backend = (Factory as any).EssentiaWASM || Factory;
+                } else {
+                    throw new Error(`Tipo de EssentiaWASM inválido: ${typeof Factory}`);
+                }
+
+
                 log('✨ Creando instancia principal...');
                 const essentia = new Essentia(backend);
+
                 log('✨ Instancia Essentia creada. Escaneando capacidades...');
                 
                 const algorithms = essentia.algorithmNames;
@@ -366,78 +389,153 @@ import '../styles/global.css';
             }
         }
 
-        async function runAubio(signal: Float32Array, sampleRate: number) {
-            log('🚀 Motor C (Aubio): Iniciando...');
+        async function runEssentiaAI(signal: Float32Array, _sampleRate: number) {
+            log('🧠 Inicializando Unidad Neural (TempoCNN + Logic-Key)...');
+            const statusDiv = document.querySelector('#statusC')!;
+            statusDiv.innerHTML = '<span class="loader"></span> IA...';
+
             try {
-                const aubiojs = (await import('aubiojs')).default;
-                const aubio = await aubiojs();
-                
-                const winSize = 2048;
-                const hopSize = 512;
-                
-                const tempo = new aubio.Tempo(winSize, hopSize, sampleRate);
-                let bpms: number[] = [];
-                
-                const pitch = new aubio.Pitch('default', winSize, hopSize, sampleRate);
-                let pitches: number[] = [];
-
-                for (let i = 0; i < signal.length; i += hopSize) {
-                    const frame = signal.slice(i, i + hopSize);
-                    if (frame.length === hopSize) {
-                        if (tempo.do(frame)) {
-                            const b = tempo.getBpm();
-                            if (b > 30 && b < 250) bpms.push(b);
-                        }
-                        const p = pitch.do(frame);
-                        if (p > 50 && p < 2000) pitches.push(p);
-                    }
+                // @ts-ignore
+                if (typeof tf === 'undefined' || typeof EssentiaModel === 'undefined') {
+                    throw new Error('TensorFlow.js o EssentiaModel no cargados');
                 }
+
+                log('📡 Cargando modelo neuronal local (TempoCNN)...');
+                // @ts-ignore
+                const tempoModel = new EssentiaModel.EssentiaTensorflowJSModel(tf, '/lib/models/tempo/model.json');
+                await tempoModel.initialize();
+                log('✅ Modelo rítmico cargado.');
+
+                const gWasm = (window as any).exports?.EssentiaWASM || (window as any).EssentiaWasm || (window as any).EssentiaWASM || (window as any).Module;
                 
-                if (bpms.length > 0) {
-                    bpms.sort((a,b) => a-b);
-                    let median = bpms[Math.floor(bpms.length / 2)];
-                    
-                    // HEURÍSTICA MEJORADA: Detectar armónicos comunes
-                    // Si la canción es ~83, Aubio suele dar ~126 (1.5x) o ~166 (2x)
-                    // Comprobamos si hay clusters significativos en las versiones divididas.
-                    const checkHarmony = (val: number, divisor: number) => {
-                        const target = val / divisor;
-                        const count = bpms.filter(b => Math.abs(b - target) < 3).length;
-                        return count > bpms.length * 0.15; // 15% de los beats sugieren este ritmo
+                if (!gWasm) {
+                    throw new Error('No se encontró el backend WASM de Essentia.');
+                }
+
+                let EssentiaWASM = typeof gWasm === 'function' ? await gWasm() : gWasm;
+                if (EssentiaWASM.EssentiaWASM) EssentiaWASM = EssentiaWASM.EssentiaWASM;
+
+                // --- POLYFILLS ---
+                if (!EssentiaWASM.EssentiaJS.prototype.TensorflowInputTempoCNN) {
+                    EssentiaWASM.EssentiaJS.prototype.TensorflowInputTempoCNN = function(frame: any) {
+                        const win = this.Windowing(frame, true, 1024, "hann", 0, true);
+                        const spec = this.Spectrum(win.frame, 1024);
+                        return this.MelBands(spec.spectrum, 5512.5, 513, true, 0, 'unit_tri', 40, 11025, 'magnitude', 'slaneyMel', 'linear');
                     };
+                }
 
-                    if (checkHarmony(median, 1.5)) {
-                        log(`💡 Motor C: Detectada armonía 1.5x. Ajustando ${median.toFixed(0)} -> ${(median/1.5).toFixed(0)}`);
-                        median = median / 1.5;
-                    } else if (checkHarmony(median, 2)) {
-                        log(`💡 Motor C: Detectada armonía 2x. Ajustando ${median.toFixed(0)} -> ${(median/2).toFixed(0)}`);
-                        median = median / 2;
+                // @ts-ignore
+                const tempoExtractor = new EssentiaModel.EssentiaTFInputExtractor(EssentiaWASM, 'tempocnn');
+                const dummyCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 44100 });
+                const dummyBuffer = dummyCtx.createBuffer(1, signal.length, 44100);
+                dummyBuffer.copyToChannel(signal, 0);
+
+                // --- 1. PROCESAMIENTO BPM (NEURAL) ---
+                log('🎞️ Analizando Ritmo (TempoCNN Local)...');
+                // @ts-ignore
+                tempoExtractor.sampleRate = 11025;
+                const downTempo = await tempoExtractor.downsampleAudioBuffer(dummyBuffer);
+                const featsTempo = tempoExtractor.computeFrameWise(downTempo, 512);
+
+                const tempoRaw = tempoModel.arrayToTensorAsBatches(featsTempo.melSpectrum, [featsTempo.frameSize, featsTempo.melBandsSize], 256, true);
+                const tempoIn = tempoRaw.transpose([0, 2, 1]).expandDims(-1);
+                // @ts-ignore
+                const tempoPreds = await tempoModel.model.predict(tempoIn);
+                const tempoMean = tempoPreds.mean(0);
+                const tempoData = await tempoMean.data();
+
+                let maxProbT = -1, maxIndexT = -1;
+                for (let i = 0; i < tempoData.length; i++) {
+                    if (tempoData[i] > maxProbT) { maxProbT = tempoData[i]; maxIndexT = i; }
+                }
+                let rawBpm = maxIndexT + 30;
+
+                // --- 2. PROCESAMIENTO KEY (INDEPENDIENTE / CUSTOM CHAIN) ---
+                log('🎞️ Analizando Clave (Logical-Judge Chain)...');
+                // Para ser un juez independiente, no usamos los defaults.
+                // Reconfiguramos KeyExtractor con el perfil 'krumhansl' y parámetros específicos.
+                const essentia = new (window as any).Essentia(EssentiaWASM);
+                const vector = essentia.arrayToVector(signal);
+                
+                // FIRMA REAL DE KeyExtractor (15 argumentos):
+                // 1. audio
+                // 2. averageDetuningCorrection (bool)
+                // 3. frameSize (int)
+                // 4. hopSize (int)
+                // 5. hpcpSize (int)
+                // 6. maxFrequency (float)
+                // 7. maximumSpectralPeaks (int)
+                // 8. minFrequency (float)
+                // 9. pcpThreshold (float)
+                // 10. profileType (string: 'bgate', 'krumhansl', 'temperley', 'shaath', 'gomez')
+                // 11. sampleRate (float)
+                // 12. spectralPeaksThreshold (float)
+                // 13. tuningFrequency (float)
+                // 14. weightType (string: 'none', 'cosine', 'squaredCosine')
+                // 15. windowType (string)
+                
+                const resKey = essentia.KeyExtractor(
+                    vector,      // audio
+                    true,        // averageDetuningCorrection
+                    4096,        // frameSize
+                    4096,        // hopSize
+                    12,          // hpcpSize
+                    3500,        // maxFrequency
+                    60,          // maximumSpectralPeaks
+                    25,          // minFrequency
+                    0.2,         // pcpThreshold
+                    'krumhansl', // profileType (Independencia!)
+                    44100,       // sampleRate
+                    0.0001,      // spectralPeaksThreshold
+                    440,         // tuningFrequency
+                    'cosine',    // weightType
+                    'hann'       // windowType
+                );
+
+                const finalKey = `${resKey.key} ${resKey.scale}`;
+
+
+                // --- 3. CONSENSO INTELIGENTE BPM ---
+                if (results.bpmA === null && results.bpmB === null) {
+                    await new Promise(r => setTimeout(r, 1500));
+                }
+                const consensusRef = results.bpmA || results.bpmB || rawBpm;
+                if (Math.abs(rawBpm - consensusRef) > consensusRef * 0.15) {
+                    let altMax = -1, altIdx = -1;
+                    const range = Math.round(consensusRef * 0.1);
+                    const start = Math.max(0, Math.round(consensusRef - 30 - range));
+                    const end = Math.min(255, Math.round(consensusRef - 30 + range));
+                    for (let i = start; i <= end; i++) {
+                        if (tempoData[i] > altMax) { altMax = tempoData[i]; altIdx = i; }
                     }
-
-                    const bpm = Math.round(median);
-                    results.bpmC = bpm;
-                    document.querySelector('#bpmC')!.textContent = bpm.toString();
-                    log(`🎯 Motor C finalizó: ${bpm} BPM`);
-                    updateConsensus();
+                    if (altIdx !== -1 && altMax > maxProbT * 0.25) {
+                        log(`💡 IA (Motor C) ajustada por coherencia: ${altIdx + 30} BPM`);
+                        rawBpm = altIdx + 30;
+                    }
                 }
+                const finalBpm = Math.round(rawBpm);
 
-                if (pitches.length > 0) {
-                    pitches.sort((a,b) => a-b);
-                    const avgPitch = pitches[Math.floor(pitches.length/2)];
-                    const notes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-                    const semitone = 12 * (Math.log(avgPitch / 440) / Math.log(2)) + 69;
-                    const noteIndex = Math.round(semitone) % 12;
-                    document.querySelector('#keyC')!.textContent = `Key (Aprox): ${notes[noteIndex]}`;
-                }
+                results.bpmC = finalBpm;
+                document.querySelector('#bpmC')!.textContent = finalBpm.toString();
+                document.querySelector('#keyC')!.textContent = `Key: ${finalKey}`;
+                document.querySelector('#statusC')!.textContent = '✅ IA OK';
+                log(`🎯 Motor C finalizó: ${finalBpm} BPM | Key: ${finalKey} (Logical-Neural)`);
 
-                document.querySelector('#statusC')!.textContent = '✅ OK';
+                // --- CLEANUP ---
+                [tempoRaw, tempoIn, tempoPreds, tempoMean].forEach(t => t.dispose());
+                tempoExtractor.delete(); 
+                tempoModel.dispose();
+                dummyCtx.close();
+                updateConsensus();
             } catch (e: any) {
-                log(`❌ Fallo Motor C: ${e.message}`, 'error');
+                log(`❌ Fallo Motor C (IA): ${e.message}`, 'error');
                 document.querySelector('#statusC')!.textContent = '❌ Error';
             } finally {
-                if (termStatus!.textContent !== 'ERROR') termStatus!.textContent = 'IDLE';
+                termStatus!.textContent = 'IDLE';
             }
         }
+
+
 
         function updateConsensus() {
             const valid = [results.bpmA, results.bpmB, results.bpmC].filter(b => b !== null) as number[];
