@@ -41,7 +41,7 @@ import '../styles/global.css';
     <!-- Contenido Principal -->
     <div class="main-content">
         <div class="container">
-            <div class="version">v0.2.1</div>
+            <div class="version">v0.2.2</div>
             <h1>YouTube to MP3</h1>
             <p class="subtitle"></p>
 
@@ -420,7 +420,13 @@ import '../styles/global.css';
                     EssentiaWASM.EssentiaJS.prototype.TensorflowInputTempoCNN = function(frame: any) {
                         const win = this.Windowing(frame, true, 1024, "hann", 0, true);
                         const spec = this.Spectrum(win.frame, 1024);
-                        return this.MelBands(spec.spectrum, 5512.5, 513, true, 0, 'unit_tri', 40, 11025, 'magnitude', 'slaneyMel', 'linear');
+                        // CORRECCIÓN FINAL DE ESCALA:
+                        // DeepTemp/TempoCNN necesita Log-Mel-Spectrogram.
+                        // Usamos 'magnitude' porque el log se aplica sobre la magnitud.
+                        // log = true (Crucial para convertir 0.001 -> -60dB -> valor positivo escalado)
+                        // normalize = 'unit_max' para asegurar que los picos lleguen a 1.0 antes del log
+                        const bands = this.MelBands(spec.spectrum, 5512.5, 513, true, 0, 'unit_max', 40, 11025, 'magnitude', 'slaneyMel', 'linear');
+                        return bands;
                     };
                 }
 
@@ -434,11 +440,33 @@ import '../styles/global.css';
                 log('🎞️ Analizando Ritmo (TempoCNN Local)...');
                 // @ts-ignore
                 tempoExtractor.sampleRate = 11025;
-                const downTempo = await tempoExtractor.downsampleAudioBuffer(dummyBuffer);
-                const featsTempo = tempoExtractor.computeFrameWise(downTempo, 512);
+                const downTempoChannel = await tempoExtractor.downsampleAudioBuffer(dummyBuffer);
+                
+                // DIAGNÓSTICO DE ENERGÍA: Verificamos si la señal llegó "viva" tras el downsampling
+                let maxAmp = 0;
+                for (let i = 0; i < Math.min(downTempoChannel.length, 10000); i++) {
+                    const abs = Math.abs(downTempoChannel[i]);
+                    if (abs > maxAmp) maxAmp = abs;
+                }
+                log(`📊 Energía Pico (11kHz): ${maxAmp.toFixed(4)} ${maxAmp > 0.001 ? '✅' : '⚠️ Silencio?'}`, 'info');
+
+                const featsTempo = tempoExtractor.computeFrameWise(downTempoChannel, 512);
 
                 const tempoRaw = tempoModel.arrayToTensorAsBatches(featsTempo.melSpectrum, [featsTempo.frameSize, featsTempo.melBandsSize], 256, true);
+
                 const tempoIn = tempoRaw.transpose([0, 2, 1]).expandDims(-1);
+                
+                // --- BIOPSIA NEURONAL ---
+                const tMin = tempoIn.min().dataSync()[0];
+                const tMax = tempoIn.max().dataSync()[0];
+                const tMean = tempoIn.mean().dataSync()[0];
+                log(`🔬 Sonda Tensor: Min=${tMin.toExponential(2)} Max=${tMax.toExponential(2)} Mean=${tMean.toExponential(2)}`, 'warn');
+                
+                if (tMax === 0 || isNaN(tMax)) {
+                     log('⚠️ ALERTA: La red neuronal está recibiendo un tensor VACÍO o CORRUPTO.', 'error');
+                }
+                // -----------------------
+
                 // @ts-ignore
                 const tempoPreds = await tempoModel.model.predict(tempoIn);
                 const tempoMean = tempoPreds.mean(0);
@@ -452,27 +480,8 @@ import '../styles/global.css';
 
                 // --- 2. PROCESAMIENTO KEY (INDEPENDIENTE / CUSTOM CHAIN) ---
                 log('🎞️ Analizando Clave (Logical-Judge Chain)...');
-                // Para ser un juez independiente, no usamos los defaults.
-                // Reconfiguramos KeyExtractor con el perfil 'krumhansl' y parámetros específicos.
                 const essentia = new (window as any).Essentia(EssentiaWASM);
                 const vector = essentia.arrayToVector(signal);
-                
-                // FIRMA REAL DE KeyExtractor (15 argumentos):
-                // 1. audio
-                // 2. averageDetuningCorrection (bool)
-                // 3. frameSize (int)
-                // 4. hopSize (int)
-                // 5. hpcpSize (int)
-                // 6. maxFrequency (float)
-                // 7. maximumSpectralPeaks (int)
-                // 8. minFrequency (float)
-                // 9. pcpThreshold (float)
-                // 10. profileType (string: 'bgate', 'krumhansl', 'temperley', 'shaath', 'gomez')
-                // 11. sampleRate (float)
-                // 12. spectralPeaksThreshold (float)
-                // 13. tuningFrequency (float)
-                // 14. weightType (string: 'none', 'cosine', 'squaredCosine')
-                // 15. windowType (string)
                 
                 const resKey = essentia.KeyExtractor(
                     vector,      // audio
@@ -484,7 +493,7 @@ import '../styles/global.css';
                     60,          // maximumSpectralPeaks
                     25,          // minFrequency
                     0.2,         // pcpThreshold
-                    'krumhansl', // profileType (Independencia!)
+                    'krumhansl', // profileType
                     44100,       // sampleRate
                     0.0001,      // spectralPeaksThreshold
                     440,         // tuningFrequency
@@ -493,6 +502,7 @@ import '../styles/global.css';
                 );
 
                 const finalKey = `${resKey.key} ${resKey.scale}`;
+
 
 
                 // --- 3. CONSENSO INTELIGENTE BPM ---
