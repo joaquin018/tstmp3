@@ -28,9 +28,7 @@ export async function runAnalysisFlow() {
     ['A', 'B', 'C'].forEach(id => {
         const engineId = id as 'A' | 'B' | 'C';
         const bpmEl = UI.engines[engineId].bpm;
-        const statusEl = UI.engines[engineId].status;
         if (bpmEl) bpmEl.textContent = '...';
-        if (statusEl) statusEl.textContent = 'Analizando...';
     });
 
     const bestCandidate = currentAudioState.lufsRanks[0];

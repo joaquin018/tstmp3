@@ -23,17 +23,14 @@ export async function runRealtimeBPMFromSignal(signal: Float32Array, sampleRate:
             results.bpmB = result;
 
             if (UI.engines.B.bpm) UI.engines.B.bpm.textContent = result.toString();
-            UI.setStatus(UI.engines.B.status, '✅ OK', 'success');
 
             log(`🎯 Motor B finalizó: ${result} BPM (Confianza: ${Math.round(bpmData[0].count || 0)})`);
             updateConsensus();
         } else {
             log('⚠️ Motor B no pudo determinar el ritmo en esta sección.', 'warn');
-            UI.setStatus(UI.engines.B.status, '❓ Nulo', 'info');
         }
     } catch (e: any) {
         log(`❌ Error en Motor B: ${e.message}`, 'error');
-        UI.setStatus(UI.engines.B.status, '❌ Error', 'error');
     }
 }
 
@@ -74,15 +71,10 @@ export async function runEssentia(signal: Float32Array, sampleRate: number) {
         if (UI.engines.A.bpm) UI.engines.A.bpm.textContent = bpm > 0 ? bpm.toString() : '--';
         if (UI.engines.A.key) UI.engines.A.key.textContent = `Key: ${key} ${scale}`;
 
-        const statusMsg = bpm > 0 ? '✅ OK' : '❓ Nulo';
-        const statusType = bpm > 0 ? 'success' : 'info';
-        UI.setStatus(UI.engines.A.status, statusMsg, statusType);
-
         log(`🎯 Motor A finalizó: ${bpm} BPM | Key: ${key} ${scale}`);
         updateConsensus();
     } catch (e: any) {
         log(`❌ Fallo Motor A: ${e.message}`, 'error');
-        UI.setStatus(UI.engines.A.status, '❌ Error', 'error');
     }
 }
 
@@ -105,7 +97,6 @@ function resampleLinear(input: Float32Array, oldRate: number, newRate: number) {
 
 export async function runEssentiaAI(signal: Float32Array, _sampleRate: number) {
     log('🧠 Inicializando Unidad Neural (TempoCNN)...');
-    UI.setStatus(UI.engines.C.status, '<span class="loader"></span> IA...', 'info');
 
     try {
         const tf = (window as any).tf;
@@ -356,7 +347,6 @@ export async function runEssentiaAI(signal: Float32Array, _sampleRate: number) {
         results.bpmC = bpm;
 
         if (UI.engines.C.bpm) UI.engines.C.bpm.textContent = bpm.toString();
-        UI.setStatus(UI.engines.C.status, '✅ OK', 'success');
 
         log(`🎯 Motor C finalizó: ${bpm} BPM`, 'info');
         updateConsensus();
@@ -380,7 +370,5 @@ export async function runEssentiaAI(signal: Float32Array, _sampleRate: number) {
                 ess.delete();
             } catch (diagErr) { /* ignore */ }
         }
-
-        UI.setStatus(UI.engines.C.status, '❌ Error', 'error');
     }
 }

@@ -11,15 +11,12 @@ export const UI = {
         A: {
             get bpm() { return document.getElementById('bpmA') as HTMLElement; },
             get key() { return document.getElementById('keyA') as HTMLElement; },
-            get status() { return document.getElementById('statusA') as HTMLElement; },
         },
         B: {
             get bpm() { return document.getElementById('bpmB') as HTMLElement; },
-            get status() { return document.getElementById('statusB') as HTMLElement; },
         },
         C: {
             get bpm() { return document.getElementById('bpmC') as HTMLElement; },
-            get status() { return document.getElementById('statusC') as HTMLElement; },
         }
     },
 
