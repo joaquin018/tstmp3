@@ -31,6 +31,30 @@ body {
     justify-content: center;
     align-items: center;
     padding: 2rem;
+    overflow-x: hidden;
+}
+
+.app-layout {
+    display: grid;
+    grid-template-columns: 1fr 600px 1fr;
+    /* Equal side columns to keep center in center */
+    gap: 30px;
+    width: 100%;
+    max-width: 1600px;
+    align-items: center;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.layout-spacer {
+    /* Mirrored width of the analyzer panel to keep the center balanced */
+    visibility: hidden;
+    width: 0;
+    transition: width 0.5s ease;
+}
+
+.app-layout.show-analyzer .layout-spacer {
+    width: 450px;
+    /* Matching analyzer width */
 }
 
 .container {
@@ -42,6 +66,7 @@ body {
     border-radius: 16px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
     border: 1px solid var(--border);
+    z-index: 10;
 }
 
 .version {
@@ -281,12 +306,93 @@ h2 {
     font-size: 0.7rem;
     margin-top: 0.5rem;
     color: #666;
+    font-weight: 500;
 }
 
+/* --- Layout: Analyzer Panel --- */
+.analyzer-panel {
+    width: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    transform: translateX(-50px);
+    pointer-events: none;
+    max-height: 90vh;
+    overflow-y: auto;
+    scrollbar-width: none;
+}
 
+.app-layout.show-analyzer .analyzer-panel {
+    width: 450px;
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: all;
+}
 
-@media (max-width: 500px) {
-    .analysis-grid {
+#analysisSection {
+    margin: 0;
+    padding: 0;
+    border-top: none;
+}
+
+.analyzer-panel .analysis-grid {
+    grid-template-columns: 1fr;
+    /* Stack vertically in sidebar */
+    gap: 15px;
+}
+
+/* --- Actions & Toggle Button --- */
+.app-actions {
+    margin-top: 1.5rem;
+    display: flex;
+    justify-content: center;
+}
+
+.secondary-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: #999;
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    width: auto;
+}
+
+.secondary-btn:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: rgba(62, 166, 255, 0.05);
+}
+
+.secondary-btn.active {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+    box-shadow: 0 0 15px rgba(62, 166, 255, 0.3);
+}
+
+.secondary-btn .icon {
+    font-size: 1rem;
+}
+
+@media (max-width: 1100px) {
+    .app-layout {
         grid-template-columns: 1fr;
+        justify-items: center;
+    }
+
+    .layout-spacer {
+        display: none;
+    }
+
+    .app-layout.show-analyzer .analyzer-panel {
+        width: 100%;
+        max-width: 600px;
     }
 }

@@ -26,13 +26,29 @@ import AnalysisSection from '../components/AnalysisSection.astro';
     <DropOverlay />
 
     <div class="main-content">
-        <div class="container">
-            <div class="version">v0.3.1</div>
-            <h1>YouTube to MP3</h1>
-            <p class="subtitle"></p>
+        <div class="app-layout" id="appLayout">
+            <!-- Left Spacer (to keep center centered) -->
+            <div class="layout-spacer"></div>
 
-            <YouTubeForm />
-            <AnalysisSection />
+            <!-- Main Downloader Card -->
+            <div class="container main-app">
+                <div class="version">v0.3.2</div>
+                <h1>YouTube to MP3</h1>
+                <p class="subtitle"></p>
+
+                <YouTubeForm />
+                
+                <div class="app-actions">
+                    <button id="toggleAnalyzer" class="secondary-btn">
+                        <span class="icon">📊</span> Analyzer
+                    </button>
+                </div>
+            </div>
+
+            <!-- Right Side: Analysis Panel -->
+            <div class="analyzer-panel" id="analyzerPanel">
+                <AnalysisSection />
+            </div>
         </div>
     </div>
 
@@ -99,6 +115,15 @@ import AnalysisSection from '../components/AnalysisSection.astro';
                 if (termStatus) termStatus.textContent = 'ERROR';
             }
         }
+
+        // Analyzer Toggle
+        const toggleBtn = document.querySelector('#toggleAnalyzer');
+        const appLayout = document.querySelector('#appLayout');
+        
+        toggleBtn?.addEventListener('click', () => {
+            appLayout?.classList.toggle('show-analyzer');
+            toggleBtn.classList.toggle('active');
+        });
 
         // Shortcut Terminal
         window.addEventListener('keydown', (e) => {
