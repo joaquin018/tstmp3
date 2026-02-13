@@ -1,16 +1,13 @@
 import { log } from './logger';
 import { runEssentia, runRealtimeBPMFromSignal, runEssentiaAI } from './bpmEngines';
 import { setupGuiMonitor } from './audioMonitor';
+import { UI } from './ui';
 
 export interface AudioState {
     signal: Float32Array;
     sampleRate: number;
     totalDuration: number;
-    mode: 'lufs' | 'rhythm';
     lufsRanks: any[];
-    rhythmRanks: any[];
-    lufsIdx: number;
-    rhythmIdx: number;
     currentStart: number;
 }
 
@@ -24,55 +21,25 @@ export function getAudioState() {
     return currentAudioState;
 }
 
-export async function runAnalysisFlow(forceMode: 'lufs' | 'rhythm' | null = null) {
+export async function runAnalysisFlow() {
     if (!currentAudioState) return;
 
-    if (forceMode) currentAudioState.mode = forceMode;
-    const mode = currentAudioState.mode;
-
-    // Reset UI via selectors (could be improved with events or refs)
+    // Reset UI via centralized module
     ['A', 'B', 'C'].forEach(id => {
-        const bpmEl = document.querySelector(`#bpm${id}`);
-        const statusEl = document.querySelector(`#status${id}`);
+        const engineId = id as 'A' | 'B' | 'C';
+        const bpmEl = UI.engines[engineId].bpm;
+        const statusEl = UI.engines[engineId].status;
         if (bpmEl) bpmEl.textContent = '...';
         if (statusEl) statusEl.textContent = 'Analizando...';
     });
 
-    const candidates = mode === 'lufs' ? currentAudioState.lufsRanks : currentAudioState.rhythmRanks;
-    let bestCandidate = candidates[0];
-
-    if (forceMode) {
-        if (mode === 'lufs') {
-            currentAudioState.lufsIdx = (currentAudioState.lufsIdx + 1) % Math.min(candidates.length, 5);
-            bestCandidate = currentAudioState.lufsRanks[currentAudioState.lufsIdx];
-        } else {
-            currentAudioState.rhythmIdx = (currentAudioState.rhythmIdx + 1) % Math.min(candidates.length, 5);
-            bestCandidate = currentAudioState.rhythmRanks[currentAudioState.rhythmIdx];
-        }
-
-        if (bestCandidate.start === currentAudioState.currentStart && candidates.length > 1) {
-            if (mode === 'lufs') {
-                currentAudioState.lufsIdx = (currentAudioState.lufsIdx + 1) % candidates.length;
-                bestCandidate = currentAudioState.lufsRanks[currentAudioState.lufsIdx];
-            } else {
-                currentAudioState.rhythmIdx = (currentAudioState.rhythmIdx + 1) % candidates.length;
-                bestCandidate = currentAudioState.rhythmRanks[currentAudioState.rhythmIdx];
-            }
-        }
-    }
-
+    const bestCandidate = currentAudioState.lufsRanks[0];
     const { signal, sampleRate } = currentAudioState;
     const sliceStart = bestCandidate.start;
     const sliceDuration = bestCandidate.duration;
     currentAudioState.currentStart = sliceStart;
 
-    log(`🔍 Toma #${(mode === 'lufs' ? currentAudioState.lufsIdx : currentAudioState.rhythmIdx) + 1} (${mode.toUpperCase()}) @ ${sliceStart}s`);
-
-    const btnA = document.querySelector('#btnAgainMode');
-    if (btnA) {
-        if (mode === 'rhythm') btnA.classList.add('active');
-        else btnA.classList.remove('active');
-    }
+    log(`🔍 Iniciando análisis @ ${sliceStart}s (Fragmento de 30s más fuerte)`);
 
     const startSample = Math.floor(sliceStart * sampleRate);
     const endSample = Math.floor((sliceStart + sliceDuration) * sampleRate);
@@ -160,7 +127,6 @@ export async function runStructuralMapping(signal: Float32Array, sampleRate: num
     }
 
     return {
-        lufsRanks: [...allSlices].sort((a, b) => b.lufs - a.lufs),
-        rhythmRanks: [...allSlices].sort((a, b) => b.rhythm - a.rhythm)
+        lufsRanks: [...allSlices].sort((a, b) => b.lufs - a.lufs)
     };
 }

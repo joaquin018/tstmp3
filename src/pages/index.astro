@@ -26,7 +26,7 @@ import AnalysisSection from '../components/AnalysisSection.astro';
 
     <div class="main-content">
         <div class="container">
-            <div class="version">v0.2.4</div>
+            <div class="version">v0.2.5</div>
             <h1>YouTube to MP3</h1>
             <p class="subtitle"></p>
 
@@ -80,11 +80,7 @@ import AnalysisSection from '../components/AnalysisSection.astro';
                     signal: channelData,
                     sampleRate: audioBuffer.sampleRate,
                     totalDuration: totalDuration,
-                    mode: 'lufs',
                     lufsRanks: mapping.lufsRanks,
-                    rhythmRanks: mapping.rhythmRanks,
-                    lufsIdx: 0,
-                    rhythmIdx: 0,
                     currentStart: -1
                 });
 

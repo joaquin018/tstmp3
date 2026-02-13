@@ -1,5 +1,6 @@
 import { log } from './logger';
 import { results, updateConsensus } from './consensus';
+import { UI } from './ui';
 
 export async function runRealtimeBPMFromSignal(signal: Float32Array, sampleRate: number) {
     log('🚀 Motor B (RealtimeBPM): Iniciando...');
@@ -21,22 +22,18 @@ export async function runRealtimeBPMFromSignal(signal: Float32Array, sampleRate:
             const result = Math.round(bpmData[0].tempo);
             results.bpmB = result;
 
-            const bpmB = document.querySelector('#bpmB');
-            const statusB = document.querySelector('#statusB');
-            if (bpmB) bpmB.textContent = result.toString();
-            if (statusB) statusB.textContent = '✅ OK';
+            if (UI.engines.B.bpm) UI.engines.B.bpm.textContent = result.toString();
+            UI.setStatus(UI.engines.B.status, '✅ OK', 'success');
 
             log(`🎯 Motor B finalizó: ${result} BPM (Confianza: ${Math.round(bpmData[0].count || 0)})`);
             updateConsensus();
         } else {
             log('⚠️ Motor B no pudo determinar el ritmo en esta sección.', 'warn');
-            const statusB = document.querySelector('#statusB');
-            if (statusB) statusB.textContent = '❓ Nulo';
+            UI.setStatus(UI.engines.B.status, '❓ Nulo', 'info');
         }
     } catch (e: any) {
         log(`❌ Error en Motor B: ${e.message}`, 'error');
-        const statusB = document.querySelector('#statusB');
-        if (statusB) statusB.textContent = '❌ Error';
+        UI.setStatus(UI.engines.B.status, '❌ Error', 'error');
     }
 }
 
@@ -73,20 +70,19 @@ export async function runEssentia(signal: Float32Array, sampleRate: number) {
         }
 
         results.bpmA = bpm;
-        const bpmAEl = document.querySelector('#bpmA');
-        const keyAEl = document.querySelector('#keyA');
-        const statusAEl = document.querySelector('#statusA');
 
-        if (bpmAEl) bpmAEl.textContent = bpm > 0 ? bpm.toString() : '--';
-        if (keyAEl) keyAEl.textContent = `Key: ${key} ${scale}`;
-        if (statusAEl) statusAEl.textContent = bpm > 0 ? '✅ OK' : '❓ Nulo';
+        if (UI.engines.A.bpm) UI.engines.A.bpm.textContent = bpm > 0 ? bpm.toString() : '--';
+        if (UI.engines.A.key) UI.engines.A.key.textContent = `Key: ${key} ${scale}`;
+
+        const statusMsg = bpm > 0 ? '✅ OK' : '❓ Nulo';
+        const statusType = bpm > 0 ? 'success' : 'info';
+        UI.setStatus(UI.engines.A.status, statusMsg, statusType);
 
         log(`🎯 Motor A finalizó: ${bpm} BPM | Key: ${key} ${scale}`);
         updateConsensus();
     } catch (e: any) {
         log(`❌ Fallo Motor A: ${e.message}`, 'error');
-        const statusAEl = document.querySelector('#statusA');
-        if (statusAEl) statusAEl.textContent = '❌ Error';
+        UI.setStatus(UI.engines.A.status, '❌ Error', 'error');
     }
 }
 
@@ -109,8 +105,7 @@ function resampleLinear(input: Float32Array, oldRate: number, newRate: number) {
 
 export async function runEssentiaAI(signal: Float32Array, _sampleRate: number) {
     log('🧠 Inicializando Unidad Neural (TempoCNN)...');
-    const statusC = document.querySelector('#statusC');
-    if (statusC) statusC.innerHTML = '<span class="loader"></span> IA...';
+    UI.setStatus(UI.engines.C.status, '<span class="loader"></span> IA...', 'info');
 
     try {
         const tf = (window as any).tf;
@@ -360,10 +355,8 @@ export async function runEssentiaAI(signal: Float32Array, _sampleRate: number) {
         const bpm = maxIdx + 30;
         results.bpmC = bpm;
 
-        const bpmCEl = document.querySelector('#bpmC');
-        const statusCEl = document.querySelector('#statusC');
-        if (bpmCEl) bpmCEl.textContent = bpm.toString();
-        if (statusCEl) statusCEl.textContent = '✅ OK';
+        if (UI.engines.C.bpm) UI.engines.C.bpm.textContent = bpm.toString();
+        UI.setStatus(UI.engines.C.status, '✅ OK', 'success');
 
         log(`🎯 Motor C finalizó: ${bpm} BPM`, 'info');
         updateConsensus();
@@ -388,7 +381,6 @@ export async function runEssentiaAI(signal: Float32Array, _sampleRate: number) {
             } catch (diagErr) { /* ignore */ }
         }
 
-        const statusCEl = document.querySelector('#statusC');
-        if (statusCEl) statusCEl.textContent = '❌ Error';
+        UI.setStatus(UI.engines.C.status, '❌ Error', 'error');
     }
 }

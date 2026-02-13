@@ -1,4 +1,5 @@
 import { log } from './logger';
+import { UI } from './ui';
 
 export interface AnalysisResults {
     bpmA: number | null;
@@ -46,13 +47,4 @@ export function updateConsensus() {
     }
 
     log(`🏆 Consenso actual: ~${bestBpm} BPM`, 'info');
-
-    const consensusBpm = document.querySelector('#bpmConsensus');
-    if (consensusBpm) consensusBpm.textContent = 'BPM: ' + bestBpm.toString();
-
-    const keyA = document.querySelector('#keyA')?.textContent || '';
-    const keyConsensus = document.querySelector('#keyConsensus');
-    if (keyConsensus && keyA.includes('Key:')) {
-        keyConsensus.textContent = keyA.replace('Key:', 'Acuerdo:');
-    }
 }

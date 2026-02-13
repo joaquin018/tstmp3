@@ -1,4 +1,5 @@
 import { log } from './logger';
+import { UI } from './ui';
 
 let guiSource: AudioBufferSourceNode | null = null;
 let guiGainNode: GainNode | null = null;
@@ -13,15 +14,11 @@ export function setupGuiMonitor(signal: Float32Array, sampleRate: number) {
     guiBuffer.copyToChannel(signal, 0);
 
     const totalS = Math.floor(guiBuffer.duration);
-    const timeTotal = document.querySelector('#guiTimeTotal');
-    const timeCurrent = document.querySelector('#guiTimeCurrent');
-    const seekBar = document.querySelector('#guiSeekBar') as HTMLInputElement;
-    const playBtn = document.querySelector('#guiPlayBtn');
 
-    if (timeTotal) timeTotal.textContent = `00:${totalS.toString().padStart(2, '0')}`;
-    if (timeCurrent) timeCurrent.textContent = `00:00`;
-    if (seekBar) seekBar.value = "0";
-    if (playBtn) playBtn.textContent = '▶';
+    if (UI.player.timeTotal) UI.player.timeTotal.textContent = `00:${totalS.toString().padStart(2, '0')}`;
+    if (UI.player.timeCurrent) UI.player.timeCurrent.textContent = `00:00`;
+    if (UI.player.seekBar) UI.player.seekBar.value = "0";
+    if (UI.player.playBtn) UI.player.playBtn.textContent = '▶';
 
     guiIsPlaying = false;
     if (guiSource) { guiSource.stop(); guiSource = null; }
@@ -34,15 +31,14 @@ export function togglePlayback() {
         guiSource?.stop();
         guiSource = null;
         guiIsPlaying = false;
-        const playBtn = document.querySelector('#guiPlayBtn');
-        if (playBtn) playBtn.textContent = '▶';
+        if (UI.player.playBtn) UI.player.playBtn.textContent = '▶';
     } else {
         if (!guiBuffer) return;
         guiSource = guiCtx.createBufferSource();
         guiSource.buffer = guiBuffer;
 
         guiGainNode = guiCtx.createGain();
-        const volInput = document.querySelector('#guiVolume') as HTMLInputElement;
+        const volInput = UI.player.volume;
         const vol = volInput ? volInput.value : "0.8";
         guiGainNode.gain.value = parseFloat(vol);
 
@@ -53,8 +49,7 @@ export function togglePlayback() {
         guiSource.start(0, offset);
         guiStartTime = guiCtx.currentTime - offset;
         guiIsPlaying = true;
-        const playBtn = document.querySelector('#guiPlayBtn');
-        if (playBtn) playBtn.textContent = '⏸';
+        if (UI.player.playBtn) UI.player.playBtn.textContent = '⏸';
 
         requestAnimationFrame(updateGuiProgress);
     }
@@ -65,21 +60,17 @@ function updateGuiProgress() {
     const elapsed = guiCtx.currentTime - guiStartTime;
     const progress = (elapsed / guiBuffer.duration) * 100;
 
-    const seekBar = document.querySelector('#guiSeekBar') as HTMLInputElement;
-    const timeCurrent = document.querySelector('#guiTimeCurrent');
-
-    if (seekBar) seekBar.value = progress.toString();
-    if (timeCurrent) {
+    if (UI.player.seekBar) UI.player.seekBar.value = progress.toString();
+    if (UI.player.timeCurrent) {
         const sec = Math.floor(elapsed % 60);
-        timeCurrent.textContent = `00:${sec.toString().padStart(2, '0')}`;
+        UI.player.timeCurrent.textContent = `00:${sec.toString().padStart(2, '0')}`;
     }
 
     if (elapsed < guiBuffer.duration) {
         requestAnimationFrame(updateGuiProgress);
     } else {
         guiIsPlaying = false;
-        const playBtn = document.querySelector('#guiPlayBtn');
-        if (playBtn) playBtn.textContent = '▶';
+        if (UI.player.playBtn) UI.player.playBtn.textContent = '▶';
         guiPausedAt = 0;
     }
 }
@@ -94,6 +85,7 @@ export function seekTo(pct: number) {
         if (guiIsPlaying) {
             guiSource?.stop();
             guiIsPlaying = false;
+            // Immediate restart to seek
             togglePlayback();
         }
     }

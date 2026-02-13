@@ -1,3 +1,5 @@
+import { UI } from './ui';
+
 export interface LogEntry {
     time: string;
     msg: string;
@@ -12,7 +14,7 @@ export function log(msg: string, type: 'info' | 'warn' | 'error' = 'info', data:
     const time = new Date().toLocaleTimeString();
     fullLogs.push({ time, msg, type, data, timestamp: Date.now() });
 
-    const logContainer = document.querySelector('#logContainer');
+    const logContainer = UI.terminal.logs;
     if (logContainer) {
         const entry = document.createElement('div');
         entry.className = `log-entry log-${type}`;
@@ -35,7 +37,7 @@ export function log(msg: string, type: 'info' | 'warn' | 'error' = 'info', data:
 }
 
 export function clearLogs() {
-    const logContainer = document.querySelector('#logContainer');
+    const logContainer = UI.terminal.logs;
     if (logContainer) logContainer.innerHTML = '';
     fullLogs.length = 0;
     log('Logs limpiados.');

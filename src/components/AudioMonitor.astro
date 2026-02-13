@@ -17,15 +17,11 @@
             </div>
         </div>
 
-        <button class="btn-again" id="btnAgainMode" title="Re-escanear (Ritmo/Energía)">
-            🔄
-        </button>
     </div>
 </div>
 
 <script>
     import { togglePlayback, setVolume, seekTo } from '../scripts/audioMonitor';
-    import { runAnalysisFlow, getAudioState } from '../scripts/audioProcessor';
 
     document.querySelector('#guiPlayBtn')?.addEventListener('click', togglePlayback);
 
@@ -35,14 +31,5 @@
 
     document.querySelector('#guiSeekBar')?.addEventListener('input', (e) => {
         seekTo(parseFloat((e.target as HTMLInputElement).value));
-    });
-
-    document.querySelector('#btnAgainMode')?.addEventListener('click', () => {
-        const state = getAudioState();
-        if (state) {
-            // Ciclo inteligente: si está en lufs pasa a ritmo, si está en ritmo sigue en ritmo (pide siguiente toma)
-            const nextMode = state.mode === 'lufs' ? 'rhythm' : 'rhythm';
-            runAnalysisFlow(nextMode);
-        }
     });
 </script>
