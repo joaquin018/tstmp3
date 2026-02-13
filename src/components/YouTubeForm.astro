@@ -41,29 +41,49 @@
     }
 
     let thumbHider: any = null;
+    let lastProcessedID: string | null = null;
 
-    urlInput?.addEventListener('input', () => {
-        const id = getYouTubeID(urlInput.value);
+    async function updateThumbnail(id: string | null) {
+        if (id === lastProcessedID) return;
+        
         if (id) {
+            // Caso: Cambio de Video o Nuevo Video
             if (thumbHider) clearTimeout(thumbHider);
+            
+            // Si ya hay una imagen y es distinta, hacemos un desvanecimiento previo
+            if (lastProcessedID && lastProcessedID !== id) {
+                thumbImg.style.opacity = '0';
+                await new Promise(r => setTimeout(r, 300));
+            }
+
             thumbImg.src = `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
-            thumbImg.style.opacity = '1';
             thumbImg.style.visibility = 'visible';
+            thumbImg.style.opacity = '1';
             thumbContainer.style.borderStyle = 'solid';
-            log(`Video detectado: ${id}`);
+            
+            if (lastProcessedID !== id) {
+                log(`Video detectado: ${id}`);
+            }
+            lastProcessedID = id;
         } else {
+            // Caso: Limpieza (URL vacía o inválida)
+            lastProcessedID = null;
             thumbImg.style.opacity = '0';
             thumbContainer.style.borderStyle = 'dashed';
             
-            // Esperamos a que la transición de opacidad termine antes de vaciar el src y ocultar
             if (thumbHider) clearTimeout(thumbHider);
             thumbHider = setTimeout(() => {
-                if (!id) { // Doble check para no borrar si el usuario escribió rapido algo valido
+                if (!lastProcessedID) {
                     thumbImg.src = '';
                     thumbImg.style.visibility = 'hidden';
                 }
             }, 300);
         }
+    }
+
+    urlInput?.addEventListener('input', () => {
+        const id = getYouTubeID(urlInput.value);
+        updateThumbnail(id);
     });
 
     form?.addEventListener('submit', async (e) => {
