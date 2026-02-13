@@ -314,8 +314,7 @@ h2 {
     width: 0;
     opacity: 0;
     overflow: hidden;
-    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-    transform: translateX(-50px);
+    transition: width 0.4s ease, opacity 0.4s ease;
     pointer-events: none;
     max-height: 90vh;
     overflow-y: auto;
@@ -325,7 +324,6 @@ h2 {
 .app-layout.show-analyzer .analyzer-panel {
     width: 450px;
     opacity: 1;
-    transform: translateX(0);
     pointer-events: all;
 }
 
@@ -333,6 +331,9 @@ h2 {
     margin: 0;
     padding: 0;
     border-top: none;
+    width: 450px;
+    /* Fixed width to prevent squashing during panel transition */
+    min-width: 450px;
 }
 
 .analyzer-panel .analysis-grid {
