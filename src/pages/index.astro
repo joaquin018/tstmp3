@@ -27,7 +27,7 @@ import AnalysisSection from '../components/AnalysisSection.astro';
 
     <div class="main-content">
         <div class="container">
-            <div class="version">v0.2.9</div>
+            <div class="version">v0.3.0</div>
             <h1>YouTube to MP3</h1>
             <p class="subtitle"></p>
 
@@ -51,7 +51,6 @@ import AnalysisSection from '../components/AnalysisSection.astro';
             const analysisSection = document.querySelector('#analysisSection') as HTMLElement;
             const termStatus = document.getElementById('terminalStatus');
             
-            if (analysisSection) analysisSection.style.display = 'block';
             if (termStatus) termStatus.textContent = 'BUSY';
 
             resetResults();

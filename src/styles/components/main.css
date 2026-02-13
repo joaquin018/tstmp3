@@ -57,12 +57,15 @@ body {
 #thumbnailContainer {
     width: 240px;
     aspect-ratio: 16 / 9;
-    background: #000;
+    background: rgba(255, 255, 255, 0.05);
+    /* Placeholder background */
     border-radius: 8px;
     margin: 0 auto 1.5rem auto;
     overflow: hidden;
-    display: none;
-    border: 1px solid var(--border);
+    display: block;
+    /* Always visible */
+    border: 1px dashed var(--border);
+    /* Dashed border for empty state */
     position: relative;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
 }
@@ -205,6 +208,8 @@ button:disabled {
     margin-top: 2rem;
     padding-top: 1.5rem;
     border-top: 1px solid var(--border);
+    display: block;
+    /* Always visible */
 }
 
 h2 {
@@ -226,6 +231,12 @@ h2 {
     border-radius: 10px;
     padding: 1rem;
     text-align: center;
+    min-height: 120px;
+    /* Fixed minimum height */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
 }
 
 .analysis-card h3 {
