@@ -1,7 +1,7 @@
 {
-  "name": "tsmp3download",
+  "name": "tstmp3",
   "type": "module",
-  "version": "0.3.9",
+  "version": "0.4.0",
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
