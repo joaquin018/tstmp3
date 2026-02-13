@@ -1,0 +1,43 @@
+---
+---
+<div id="dropOverlay" class="drop-overlay">
+    <div class="drop-icon">🎵</div>
+    <div class="drop-text">Suelta tu audio aquí</div>
+    <div class="drop-subtext">MP3, WAV, M4A, OGG soportados (Procesamiento 100% Local)</div>
+</div>
+
+<script>
+    import { log } from '../scripts/logger';
+
+    const dropOverlay = document.querySelector('#dropOverlay');
+
+    window.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropOverlay?.classList.add('active');
+    });
+
+    window.addEventListener('dragleave', (e) => {
+        if (e.relatedTarget === null) {
+            dropOverlay?.classList.remove('active');
+        }
+    });
+
+    window.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        dropOverlay?.classList.remove('active');
+
+        const file = e.dataTransfer?.files[0];
+        if (file && file.type.startsWith('audio/')) {
+            log(`📂 Archivo detectado: ${file.name} (${(file.size/1024/1024).toFixed(2)} MB)`);
+            
+            const reader = new FileReader();
+            reader.onload = async (event) => {
+                const buffer = event.target?.result as ArrayBuffer;
+                window.dispatchEvent(new CustomEvent('audio-ready', { detail: { buffer, filename: file.name } }));
+            };
+            reader.readAsArrayBuffer(file);
+        } else {
+            log('❌ El archivo no es un audio válido.', 'error');
+        }
+    });
+</script>

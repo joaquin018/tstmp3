@@ -1,0 +1,48 @@
+---
+---
+<div class="analysis-monitor-station">
+    <div class="player-controls">
+        <button class="main-play-btn" id="guiPlayBtn">▶</button>
+        
+        <div class="player-info-group">
+            <div class="time-display">
+                <span id="guiTimeCurrent">00:00</span>
+                <span id="guiTimeTotal">00:00</span>
+            </div>
+            <input type="range" class="seek-bar" id="guiSeekBar" min="0" max="100" value="0" />
+            
+            <div class="volume-group">
+                <span>🔈</span>
+                <input type="range" class="volume-slider" id="guiVolume" min="0" max="1" step="0.1" value="0.8" />
+            </div>
+        </div>
+
+        <button class="btn-again" id="btnAgainMode" title="Re-escanear (Ritmo/Energía)">
+            🔄
+        </button>
+    </div>
+</div>
+
+<script>
+    import { togglePlayback, setVolume, seekTo } from '../scripts/audioMonitor';
+    import { runAnalysisFlow, getAudioState } from '../scripts/audioProcessor';
+
+    document.querySelector('#guiPlayBtn')?.addEventListener('click', togglePlayback);
+
+    document.querySelector('#guiVolume')?.addEventListener('input', (e) => {
+        setVolume((e.target as HTMLInputElement).value);
+    });
+
+    document.querySelector('#guiSeekBar')?.addEventListener('input', (e) => {
+        seekTo(parseFloat((e.target as HTMLInputElement).value));
+    });
+
+    document.querySelector('#btnAgainMode')?.addEventListener('click', () => {
+        const state = getAudioState();
+        if (state) {
+            // Ciclo inteligente: si está en lufs pasa a ritmo, si está en ritmo sigue en ritmo (pide siguiente toma)
+            const nextMode = state.mode === 'lufs' ? 'rhythm' : 'rhythm';
+            runAnalysisFlow(nextMode);
+        }
+    });
+</script>

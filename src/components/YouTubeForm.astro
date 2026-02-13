@@ -1,0 +1,94 @@
+---
+---
+<div id="thumbnailContainer">
+    <img id="thumbnailImg" src="" alt="Preview" />
+    <div class="thumbnail-overlay"></div>
+</div>
+
+<form id="downloadForm">
+    <div class="input-group">
+        <label for="url">URL del Video de YouTube</label>
+        <input 
+            type="text" 
+            id="url" 
+            name="url" 
+            placeholder="https://www.youtube.com/watch?v=..." 
+            required 
+        />
+    </div>
+    <button type="submit" id="downloadBtn">
+        <span id="btnText">Descargar MP3</span>
+    </button>
+</form>
+
+<div id="status"></div>
+
+<script>
+    import { log } from '../scripts/logger';
+
+    const urlInput = document.querySelector('#url') as HTMLInputElement;
+    const thumbContainer = document.querySelector('#thumbnailContainer') as HTMLElement;
+    const thumbImg = document.querySelector('#thumbnailImg') as HTMLImageElement;
+    const form = document.querySelector('#downloadForm');
+    const statusDiv = document.querySelector('#status') as HTMLElement;
+    const btn = document.querySelector('#downloadBtn') as HTMLButtonElement;
+    const btnText = document.querySelector('#btnText');
+
+    function getYouTubeID(url: string) {
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+        const match = url.match(regExp);
+        return (match && match[2].length === 11) ? match[2] : null;
+    }
+
+    urlInput?.addEventListener('input', () => {
+        const id = getYouTubeID(urlInput.value);
+        if (id) {
+            thumbImg.src = `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
+            thumbContainer.style.display = 'block';
+            log(`Video detectado: ${id}`);
+        } else {
+            thumbContainer.style.display = 'none';
+        }
+    });
+
+    form?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const url = urlInput.value;
+        if (!url) return;
+
+        statusDiv.style.display = 'block';
+        statusDiv.className = 'status-info';
+        statusDiv.innerHTML = '<span class="loader"></span> Procesando...';
+        btn.disabled = true;
+
+        log(`➡️ URL enviada: ${url}`);
+
+        try {
+            const response = await fetch('/api/download', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url })
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                statusDiv.className = 'status-success';
+                statusDiv.innerHTML = `✅ Descarga completada`;
+                log('✅ MP3 listo en servidor. Lanzando Laboratorio...');
+                
+                // Disparamos evento global para que index.astro lo maneje
+                window.dispatchEvent(new CustomEvent('audio-ready', { detail: { filename: result.filename } }));
+            } else {
+                statusDiv.className = 'status-error';
+                statusDiv.innerHTML = `❌ Error: ${result.error}`;
+                log(`❌ Error servidor: ${result.error}`, 'error');
+            }
+        } catch (err: any) {
+            log(`❌ Error de red: ${err.message}`, 'error');
+        } finally {
+            btn.disabled = false;
+            if (btnText) btnText.textContent = 'Descargar MP3';
+        }
+    });
+</script>

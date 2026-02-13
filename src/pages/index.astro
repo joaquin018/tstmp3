@@ -1,5 +1,9 @@
 ---
 import '../styles/global.css';
+import Terminal from '../components/Terminal.astro';
+import DropOverlay from '../components/DropOverlay.astro';
+import YouTubeForm from '../components/YouTubeForm.astro';
+import AnalysisSection from '../components/AnalysisSection.astro';
 ---
 
 <html lang="es">
@@ -10,237 +14,53 @@ import '../styles/global.css';
     <meta name="generator" content={Astro.generator} />
     <title>TS MP3 Downloader - 100% Local</title>
     
-    <!-- Librerías de Análisis Audio (Neural Edition v0.2.0) -->
     <script is:inline src="/lib/tfjs/tf.min.js"></script>
-    <script is:inline>
-        window.exports = window.exports || {};
-    </script>
     <script is:inline src="/lib/essentia/essentia-wasm.umd.js"></script>
     <script is:inline src="/lib/essentia/essentia.js-core.umd.js"></script>
     <script is:inline src="/lib/essentia/essentia.js-extractor.umd.js"></script>
     <script is:inline src="/lib/essentia/essentia.js-model.umd.js"></script>
 </head>
 <body>
-    <!-- Terminal Falso (Izquierda) -->
-    <div id="terminal" class="hidden">
-        <div class="terminal-header">
-            <div class="terminal-title-group">
-                 <span>Terminal de Análisis</span>
-                 <span id="terminalStatus">IDLE</span>
-            </div>
-            <div class="terminal-actions">
-                <button id="clearLogs" title="Limpiar logs">🧹</button>
-                <button id="toggleExpand" title="Expandir/Contraer">↔️</button>
-                <button id="downloadLogs" title="Descargar Log Completo">💾</button>
-            </div>
-        </div>
-        <div class="terminal-body" id="logContainer">
-        </div>
-    </div>
+    <Terminal />
+    <DropOverlay />
 
-    <!-- Capa de Arrastre (Drop Overlay) -->
-    <div id="dropOverlay" class="drop-overlay">
-        <div class="drop-icon">🎵</div>
-        <div class="drop-text">Suelta tu audio aquí</div>
-        <div class="drop-subtext">MP3, WAV, M4A, OGG soportados (Procesamiento 100% Local)</div>
-    </div>
-
-    <!-- Contenido Principal -->
     <div class="main-content">
         <div class="container">
-            <div class="version">v0.2.3</div>
+            <div class="version">v0.2.4</div>
             <h1>YouTube to MP3</h1>
             <p class="subtitle"></p>
 
-            <div id="thumbnailContainer">
-                <img id="thumbnailImg" src="" alt="Preview" />
-                <div class="thumbnail-overlay"></div>
-            </div>
-
-            <form id="downloadForm">
-                <div class="input-group">
-                    <label for="url">URL del Video de YouTube</label>
-                    <input 
-                        type="text" 
-                        id="url" 
-                        name="url" 
-                        placeholder="https://www.youtube.com/watch?v=..." 
-                        required 
-                    />
-                </div>
-                <button type="submit" id="downloadBtn">
-                    <span id="btnText">Descargar MP3</span>
-                </button>
-            </form>
-
-            <div id="status"></div>
-
-            <div id="analysisSection">
-                <h2></h2>
-                <div class="analysis-grid">
-                    <div class="analysis-card" id="cardA">
-                        <h3>Essentia.js (A)</h3>
-                        <div class="analysis-value" id="bpmA">--</div>
-                        <div class="analysis-key" id="keyA">Key: --</div>
-                        <div class="analysis-status" id="statusA">Esperando...</div>
-                    </div>
-                    <div class="analysis-card" id="cardB">
-                        <h3>Realtime BPM (B)</h3>
-                        <div class="analysis-value" id="bpmB">--</div>
-                        <div class="analysis-key" id="keyB">Solo BPM</div>
-                        <div class="analysis-status" id="statusB">Esperando...</div>
-                    </div>
-                    <div class="analysis-card" id="cardC">
-                        <h3>Essentia AI (C)</h3>
-                        <div class="analysis-value" id="bpmC">--</div>
-                        <div class="analysis-key" id="keyC">Neural Unit</div>
-                        <div class="analysis-status" id="statusC">Esperando...</div>
-                    </div>
-                </div>
-                <div class="engine-card consensus" id="consensus-card">
-                    <div class="engine-name">🏆 Consenso Final</div>
-                    <div class="bpm-value" id="bpmConsensus">BPM: --</div>
-                    <div class="key-value" id="keyConsensus">Buscando acuerdo...</div>
-                </div>
-            </div>
+            <YouTubeForm />
+            <AnalysisSection />
         </div>
     </div>
 
     <script>
-        // --- Sistema de Logs Avanzado ---
-        const logContainer = document.querySelector('#logContainer');
-        const termStatus = document.querySelector('#terminalStatus');
-        const fullLogs: any[] = [];
+        import { log } from '../scripts/logger';
+        import { resetResults } from '../scripts/consensus';
+        import { runAnalysisFlow, runStructuralMapping, setAudioState } from '../scripts/audioProcessor';
 
-        function log(msg: string, type: 'info'|'warn'|'error' = 'info', data: any = null) {
-            const time = new Date().toLocaleTimeString();
-            fullLogs.push({ time, msg, type, data, timestamp: Date.now() });
-
-            const entry = document.createElement('div');
-            entry.className = `log-entry log-${type}`;
-            
-            let html = `<span class="log-time">[${time}]</span> ${msg}`;
-            
-            if (data) {
-                const dataStr = typeof data === 'object' ? JSON.stringify(data, null, 2) : String(data);
-                html += ` <span class="log-toggle" onclick="this.nextElementSibling.classList.toggle('visible')">🔍</span>`;
-                html += `<pre class="log-data">${dataStr}</pre>`;
-            }
-            
-            entry.innerHTML = html;
-            logContainer?.appendChild(entry);
-            logContainer?.scrollTo(0, logContainer.scrollHeight);
-            
-            if (type === 'error') console.error(`[LOG ERROR] ${msg}`, data);
-            else console.log(`[LOG ${type.toUpperCase()}] ${msg}`, data);
-        }
-
-        // Terminal Actions
-        document.querySelector('#clearLogs')?.addEventListener('click', () => {
-            if (logContainer) logContainer.innerHTML = '';
-            fullLogs.length = 0;
-            log('Logs limpiados.');
-        });
-
-        document.querySelector('#toggleExpand')?.addEventListener('click', () => {
-            const term = document.querySelector('#terminal') as HTMLElement;
-            term.classList.toggle('expanded');
-        });
-
-        document.querySelector('#downloadLogs')?.addEventListener('click', () => {
-            const blob = new Blob([JSON.stringify(fullLogs, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `analysis_log_${new Date().toISOString()}.json`;
-            a.click();
-        });
-
-        const form = document.querySelector('#downloadForm');
-        const statusDiv = document.querySelector('#status');
-        const btn = document.querySelector('#downloadBtn');
-        const btnText = document.querySelector('#btnText');
-        const urlInput = document.querySelector('#url') as HTMLInputElement;
-        const thumbContainer = document.querySelector('#thumbnailContainer') as HTMLElement;
-        const thumbImg = document.querySelector('#thumbnailImg') as HTMLImageElement;
-
-        function getYouTubeID(url: string) {
-            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
-            const match = url.match(regExp);
-            return (match && match[2].length === 11) ? match[2] : null;
-        }
-
-        urlInput?.addEventListener('input', () => {
-            const id = getYouTubeID(urlInput.value);
-            if (id) {
-                thumbImg.src = `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
-                thumbContainer.style.display = 'block';
-                log(`Video detectado: ${id}`);
-            } else {
-                thumbContainer.style.display = 'none';
-            }
-        });
-
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const url = urlInput.value;
-            if (!url) return;
-
-            statusDiv.style.display = 'block';
-            statusDiv.className = 'status-info';
-            statusDiv.innerHTML = '<span class="loader"></span> Procesando...';
-            btn.disabled = true;
-            results = { bpmA: null, bpmB: null, bpmC: null };
-            document.querySelector('#bpmConsensus')!.textContent = 'BPM: --';
-            document.querySelector('#keyConsensus')!.textContent = 'Buscando acuerdo...';
-
-            log(`➡️ URL enviada: ${url}`);
-
-            try {
-                const response = await fetch('/api/download', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url })
-                });
-
-                const result = await response.json();
-
-                if (response.ok) {
-                    statusDiv.className = 'status-success';
-                    statusDiv.innerHTML = `✅ Descarga completada`;
-                    log('✅ MP3 listo en servidor. Lanzando Laboratorio...');
-                    startAnalysis(result.filename);
-                } else {
-                    statusDiv.className = 'status-error';
-                    statusDiv.innerHTML = `❌ Error: ${result.error}`;
-                    log(`❌ Error servidor: ${result.error}`, 'error');
-                }
-            } catch (err: any) {
-                log(`❌ Error de red: ${err.message}`, 'error');
-            } finally {
-                btn.disabled = false;
-                btnText.textContent = 'Descargar MP3';
-            }
+        window.addEventListener('audio-ready', async (e: any) => {
+            const { filename, buffer } = e.detail;
+            await startAnalysis(filename, buffer);
         });
 
         async function startAnalysis(filename: string | null, externalBuffer: ArrayBuffer | null = null) {
             const analysisSection = document.querySelector('#analysisSection') as HTMLElement;
-            analysisSection.style.display = 'block';
-            termStatus!.textContent = 'BUSY';
+            const termStatus = document.querySelector('#terminalStatus');
+            
+            if (analysisSection) analysisSection.style.display = 'block';
+            if (termStatus) termStatus.textContent = 'BUSY';
 
-            ['A', 'B', 'C'].forEach(id => {
-                document.querySelector(`#bpm${id}`)!.textContent = '...';
-                document.querySelector(`#status${id}`)!.textContent = 'Analizando...';
-            });
+            resetResults();
 
             try {
                 let arrayBuffer: ArrayBuffer;
 
                 if (externalBuffer) {
-                    log('📁 Usando archivo local arrastrado.');
                     arrayBuffer = externalBuffer;
                 } else if (filename) {
-                    log(`📥 Descargando buffet: ${filename}`);
+                    log(`📥 Descargando audio: ${filename}`);
                     const response = await fetch(`/api/get-audio?filename=${encodeURIComponent(filename)}`);
                     arrayBuffer = await response.arrayBuffer();
                 } else {
@@ -248,409 +68,39 @@ import '../styles/global.css';
                 }
 
                 const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 44100 });
-                log('🧠 Decodificando audio (CPU intensivo)...');
+                log('🧠 Decodificando audio...');
                 const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
                 const channelData = audioBuffer.getChannelData(0);
-                log(`📊 Audio decodificado. Duración: ${Math.round(audioBuffer.duration)}s @ 44.1kHz`);
+                const totalDuration = Math.round(audioBuffer.duration);
+                log(`📊 Audio decodificado. Duración: ${totalDuration}s`);
 
-                runEssentia(channelData, audioBuffer.sampleRate);
-                runRealtimeBPM(audioBuffer);
-                runEssentiaAI(channelData, audioBuffer.sampleRate);
+                const mapping = await runStructuralMapping(channelData, audioBuffer.sampleRate);
+                
+                setAudioState({
+                    signal: channelData,
+                    sampleRate: audioBuffer.sampleRate,
+                    totalDuration: totalDuration,
+                    mode: 'lufs',
+                    lufsRanks: mapping.lufsRanks,
+                    rhythmRanks: mapping.rhythmRanks,
+                    lufsIdx: 0,
+                    rhythmIdx: 0,
+                    currentStart: -1
+                });
 
+                runAnalysisFlow();
             } catch (err: any) {
-                log(`🛑 Fallo en decodificación: ${err.message}`, 'error');
-                termStatus!.textContent = 'ERROR';
+                log(`🛑 Fallo en análisis: ${err.message}`, 'error');
+                if (termStatus) termStatus.textContent = 'ERROR';
             }
         }
 
-        // --- Sistema Drag & Drop ---
-        const dropOverlay = document.querySelector('#dropOverlay');
-
-        window.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropOverlay?.classList.add('active');
-        });
-
-        window.addEventListener('dragleave', (e) => {
-            // Solo quitar si salimos de la ventana
-            if (e.relatedTarget === null) {
-                dropOverlay?.classList.remove('active');
-            }
-        });
-
-        window.addEventListener('drop', async (e) => {
-            e.preventDefault();
-            dropOverlay?.classList.remove('active');
-
-            const file = e.dataTransfer?.files[0];
-            if (file && file.type.startsWith('audio/')) {
-                log(`📂 Archivo detectado: ${file.name} (${(file.size/1024/1024).toFixed(2)} MB)`);
-                statusDiv.style.display = 'block';
-                statusDiv.className = 'status-success';
-                statusDiv.innerHTML = `✅ Procesando archivo local: <b>${file.name}</b>`;
-                
-                const reader = new FileReader();
-                reader.onload = async (event) => {
-                    const buffer = event.target?.result as ArrayBuffer;
-                    startAnalysis(null, buffer);
-                };
-                reader.readAsArrayBuffer(file);
-            } else {
-                log('❌ El archivo no es un audio válido.', 'error');
-            }
-        });
-
-        // --- Shortcut para Terminal (Ctrl + Alt + L) ---
+        // Shortcut Terminal
         window.addEventListener('keydown', (e) => {
-            if (e.ctrlKey && e.altKey && e.key === 'l') { // Usamos 'l' minúscula para mayor compatibilidad
-                const term = document.querySelector('#terminal');
-                term?.classList.toggle('hidden');
-                log('Terminal toggleado vía comando secreto.');
+            if (e.ctrlKey && e.altKey && e.key.toLowerCase() === 'l') {
+                document.querySelector('#terminal')?.classList.toggle('hidden');
             }
         });
-
-        // --- Motores (Fixes v0.1.4) ---
-
-        // Global results for consensus
-        let results = {
-            bpmA: null,
-            bpmB: null,
-            bpmC: null
-        };
-
-        async function runEssentia(signal: Float32Array, sampleRate: number) {
-            log('🚀 Motor A (Essentia): Iniciando...');
-            try {
-                // In the Web build, sometimes it's just 'EssentiaWasm'
-                const Essentia = (window as any).Essentia;
-                const gWasm = (window as any).EssentiaWasm;
-                const gWASM = (window as any).EssentiaWASM;
-                const g_wasm = (window as any).essentiaWasm;
-                const gExportsWASM = (window as any).exports?.EssentiaWASM;
-                const gModule = (window as any).Module;
-                
-                const Factory = gWasm || gWASM || g_wasm || gExportsWASM || gModule;
-
-                if (!Factory) {
-                    throw new Error("No se encontró EssentiaWasm en el objeto global.");
-                }
-
-                log('⚙️ Inicializando backend WASM...', 'info', {
-                    backend: typeof Factory
-                });
-                
-                let backend;
-                if (typeof Factory === 'function') {
-                    backend = await Factory();
-                } else if (typeof Factory === 'object') {
-                    backend = (Factory as any).EssentiaWASM || Factory;
-                } else {
-                    throw new Error(`Tipo de EssentiaWASM inválido: ${typeof Factory}`);
-                }
-
-
-                log('✨ Creando instancia principal...');
-                const essentia = new Essentia(backend);
-
-                log('✨ Instancia Essentia creada. Escaneando capacidades...');
-                
-                const algorithms = essentia.algorithmNames;
-                log(`📊 Algoritmos disponibles: ${algorithms.length} detectados`, 'info', {
-                    names: algorithms.slice(0, 10).concat(['...']),
-                    hasPercival: algorithms.includes('PercivalBPM'),
-                    hasRhythm: algorithms.includes('RhythmExtractor2013'),
-                    hasKey: algorithms.includes('KeyExtractor')
-                });
-
-                const vector = essentia.arrayToVector(signal);
-                let bpm = 0;
-                let key = 'Unknown';
-                let scale = '';
-
-                // --- BPM Extraction with Fallback ---
-                try {
-                    if (algorithms.includes('PercivalBPM')) {
-                        log('🥁 Usando PercivalBPM...');
-                        const res = essentia.PercivalBPM(vector);
-                        bpm = Math.round(res.bpm);
-                    } else if (algorithms.includes('RhythmExtractor2013')) {
-                        log('🥁 PercivalBPM ausente. Usando RhythmExtractor2013...');
-                        const res = essentia.RhythmExtractor2013(vector);
-                        bpm = Math.round(res.bpm);
-                    } else if (algorithms.includes('BeatTrackerDegara')) {
-                        log('🥁 Usando fallback BeatTrackerDegara...');
-                        const res = essentia.BeatTrackerDegara(vector);
-                        bpm = Math.round(60 / (res.ticks[1] - res.ticks[0]));
-                    } else {
-                        throw new Error("No hay algoritmos de BPM compatibles en este build.");
-                    }
-                } catch (e: any) {
-                    log(`⚠️ Fallo en extracción de BPM: ${e.message}`, 'warn');
-                }
-
-                // --- Key Extraction with Fallback ---
-                try {
-                    if (algorithms.includes('KeyExtractor')) {
-                        log('🎹 Usando KeyExtractor...');
-                        const res = essentia.KeyExtractor(vector);
-                        key = res.key;
-                        scale = res.scale;
-                    } else {
-                        log('🎹 KeyExtractor ausente. Intentando estimación base...');
-                        // Fallback simple si no hay extractor de clave
-                    }
-                } catch (e: any) {
-                    log(`⚠️ Fallo en extracción de Clave: ${e.message}`, 'warn');
-                }
-                
-                results.bpmA = bpm;
-                
-                document.querySelector('#bpmA')!.textContent = bpm > 0 ? bpm.toString() : '--';
-                document.querySelector('#keyA')!.textContent = `Key: ${key} ${scale}`;
-                document.querySelector('#statusA')!.textContent = bpm > 0 ? '✅ OK' : '❓ Nulo';
-                log(`🎯 Motor A finalizó: ${bpm} BPM | Key: ${key} ${scale}`);
-                updateConsensus();
-            } catch (e: any) {
-                log(`❌ Fallo Motor A: ${e.message}`, 'error', {
-                    errorName: e.name,
-                    stack: e.stack,
-                    essentiaAvailable: !!(window as any).Essentia,
-                    wasmAvailable: !!(window as any).EssentiaWASM
-                });
-                document.querySelector('#statusA')!.textContent = '❌ Error';
-            }
-        }
-
-        async function runRealtimeBPM(audioBuffer: AudioBuffer) {
-            log('🚀 Motor B (RealtimeBPM): Iniciando...');
-            try {
-                const mod: any = await import('realtime-bpm-analyzer');
-                const analyzeFullBuffer = mod.analyzeFullBuffer || mod.default?.analyzeFullBuffer;
-
-                if (!analyzeFullBuffer) {
-                    throw new Error('Función analyzeFullBuffer no encontrada en el módulo.');
-                }
-
-                const data = await analyzeFullBuffer(audioBuffer);
-                if (data && data.length > 0) {
-                    const best = data[0];
-                    const bpm = Math.round(best.tempo);
-                    results.bpmB = bpm;
-                    
-                    document.querySelector('#bpmB')!.textContent = bpm.toString();
-                    document.querySelector('#statusB')!.textContent = '✅ OK';
-                    log(`🎯 Motor B finalizó: ${bpm} BPM (Confianza: ${best.count})`);
-                    updateConsensus();
-                } else {
-                    log('⚠️ Motor B no detectó ritmo claro.', 'warn');
-                    document.querySelector('#statusB')!.textContent = '❓ Nulo';
-                }
-            } catch (e: any) {
-                log(`❌ Fallo Motor B: ${e.message}`, 'error');
-                document.querySelector('#statusB')!.textContent = '❌ Error';
-            }
-        }
-
-        async function runEssentiaAI(signal: Float32Array, _sampleRate: number) {
-            log('🧠 Inicializando Unidad Neural (TempoCNN + Logic-Key)...');
-            const statusDiv = document.querySelector('#statusC')!;
-            statusDiv.innerHTML = '<span class="loader"></span> IA...';
-
-            try {
-                // @ts-ignore
-                if (typeof tf === 'undefined' || typeof EssentiaModel === 'undefined') {
-                    throw new Error('TensorFlow.js o EssentiaModel no cargados');
-                }
-
-                log('📡 Cargando modelo neuronal local (TempoCNN)...');
-                // @ts-ignore
-                const tempoModel = new EssentiaModel.EssentiaTensorflowJSModel(tf, '/lib/models/tempo/model.json');
-                await tempoModel.initialize();
-                log('✅ Modelo rítmico cargado.');
-
-                const gWasm = (window as any).exports?.EssentiaWASM || (window as any).EssentiaWasm || (window as any).EssentiaWASM || (window as any).Module;
-                
-                if (!gWasm) {
-                    throw new Error('No se encontró el backend WASM de Essentia.');
-                }
-
-                let EssentiaWASM = typeof gWasm === 'function' ? await gWasm() : gWasm;
-                if (EssentiaWASM.EssentiaWASM) EssentiaWASM = EssentiaWASM.EssentiaWASM;
-
-                // --- POLYFILLS ---
-                if (!EssentiaWASM.EssentiaJS.prototype.TensorflowInputTempoCNN) {
-                    EssentiaWASM.EssentiaJS.prototype.TensorflowInputTempoCNN = function(frame: any) {
-                        const win = this.Windowing(frame, true, 1024, "hann", 0, true);
-                        const spec = this.Spectrum(win.frame, 1024);
-                        // CORRECCIÓN FINAL DE ESCALA:
-                        // DeepTemp/TempoCNN necesita Log-Mel-Spectrogram.
-                        // Usamos 'magnitude' porque el log se aplica sobre la magnitud.
-                        // log = true (Crucial para convertir 0.001 -> -60dB -> valor positivo escalado)
-                        // normalize = 'unit_max' para asegurar que los picos lleguen a 1.0 antes del log
-                        const bands = this.MelBands(spec.spectrum, 5512.5, 513, true, 0, 'unit_max', 40, 11025, 'magnitude', 'slaneyMel', 'linear');
-                        return bands;
-                    };
-                }
-
-                // @ts-ignore
-                const tempoExtractor = new EssentiaModel.EssentiaTFInputExtractor(EssentiaWASM, 'tempocnn');
-                const dummyCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 44100 });
-                const dummyBuffer = dummyCtx.createBuffer(1, signal.length, 44100);
-                dummyBuffer.copyToChannel(signal, 0);
-
-                // --- 1. PROCESAMIENTO BPM (NEURAL) ---
-                log('🎞️ Analizando Ritmo (TempoCNN Local)...');
-                // @ts-ignore
-                tempoExtractor.sampleRate = 11025;
-                const downTempoChannel = await tempoExtractor.downsampleAudioBuffer(dummyBuffer);
-                
-                // DIAGNÓSTICO DE ENERGÍA: Verificamos si la señal llegó "viva" tras el downsampling
-                let maxAmp = 0;
-                for (let i = 0; i < Math.min(downTempoChannel.length, 10000); i++) {
-                    const abs = Math.abs(downTempoChannel[i]);
-                    if (abs > maxAmp) maxAmp = abs;
-                }
-                log(`📊 Energía Pico (11kHz): ${maxAmp.toFixed(4)} ${maxAmp > 0.001 ? '✅' : '⚠️ Silencio?'}`, 'info');
-
-                const featsTempo = tempoExtractor.computeFrameWise(downTempoChannel, 512);
-
-                const tempoRaw = tempoModel.arrayToTensorAsBatches(featsTempo.melSpectrum, [featsTempo.frameSize, featsTempo.melBandsSize], 256, true);
-
-                const tempoIn = tempoRaw.transpose([0, 2, 1]).expandDims(-1);
-                
-                // --- BIOPSIA NEURONAL ---
-                const tMin = tempoIn.min().dataSync()[0];
-                const tMax = tempoIn.max().dataSync()[0];
-                const tMean = tempoIn.mean().dataSync()[0];
-                log(`🔬 Sonda Tensor: Min=${tMin.toExponential(2)} Max=${tMax.toExponential(2)} Mean=${tMean.toExponential(2)}`, 'warn');
-                
-                if (tMax === 0 || isNaN(tMax)) {
-                     log('⚠️ ALERTA: La red neuronal está recibiendo un tensor VACÍO o CORRUPTO.', 'error');
-                }
-                // -----------------------
-
-                // @ts-ignore
-                const tempoPreds = await tempoModel.model.predict(tempoIn);
-                const tempoMean = tempoPreds.mean(0);
-                const tempoData = await tempoMean.data();
-
-                let maxProbT = -1, maxIndexT = -1;
-                for (let i = 0; i < tempoData.length; i++) {
-                    if (tempoData[i] > maxProbT) { maxProbT = tempoData[i]; maxIndexT = i; }
-                }
-                let rawBpm = maxIndexT + 30;
-
-                // --- 2. PROCESAMIENTO KEY (INDEPENDIENTE / CUSTOM CHAIN) ---
-                log('🎞️ Analizando Clave (Logical-Judge Chain)...');
-                const essentia = new (window as any).Essentia(EssentiaWASM);
-                const vector = essentia.arrayToVector(signal);
-                
-                const resKey = essentia.KeyExtractor(
-                    vector,      // audio
-                    true,        // averageDetuningCorrection
-                    4096,        // frameSize
-                    4096,        // hopSize
-                    12,          // hpcpSize
-                    3500,        // maxFrequency
-                    60,          // maximumSpectralPeaks
-                    25,          // minFrequency
-                    0.2,         // pcpThreshold
-                    'krumhansl', // profileType
-                    44100,       // sampleRate
-                    0.0001,      // spectralPeaksThreshold
-                    440,         // tuningFrequency
-                    'cosine',    // weightType
-                    'hann'       // windowType
-                );
-
-                const finalKey = `${resKey.key} ${resKey.scale}`;
-
-
-
-                // --- 3. CONSENSO INTELIGENTE BPM ---
-                if (results.bpmA === null && results.bpmB === null) {
-                    await new Promise(r => setTimeout(r, 1500));
-                }
-                const consensusRef = results.bpmA || results.bpmB || rawBpm;
-                if (Math.abs(rawBpm - consensusRef) > consensusRef * 0.15) {
-                    let altMax = -1, altIdx = -1;
-                    const range = Math.round(consensusRef * 0.1);
-                    const start = Math.max(0, Math.round(consensusRef - 30 - range));
-                    const end = Math.min(255, Math.round(consensusRef - 30 + range));
-                    for (let i = start; i <= end; i++) {
-                        if (tempoData[i] > altMax) { altMax = tempoData[i]; altIdx = i; }
-                    }
-                    if (altIdx !== -1 && altMax > maxProbT * 0.25) {
-                        log(`💡 IA (Motor C) ajustada por coherencia: ${altIdx + 30} BPM`);
-                        rawBpm = altIdx + 30;
-                    }
-                }
-                const finalBpm = Math.round(rawBpm);
-
-                results.bpmC = finalBpm;
-                document.querySelector('#bpmC')!.textContent = finalBpm.toString();
-                document.querySelector('#keyC')!.textContent = `Key: ${finalKey}`;
-                document.querySelector('#statusC')!.textContent = '✅ IA OK';
-                log(`🎯 Motor C finalizó: ${finalBpm} BPM | Key: ${finalKey} (Logical-Neural)`);
-
-                // --- CLEANUP ---
-                [tempoRaw, tempoIn, tempoPreds, tempoMean].forEach(t => t.dispose());
-                tempoExtractor.delete(); 
-                tempoModel.dispose();
-                dummyCtx.close();
-                updateConsensus();
-            } catch (e: any) {
-                log(`❌ Fallo Motor C (IA): ${e.message}`, 'error');
-                document.querySelector('#statusC')!.textContent = '❌ Error';
-            } finally {
-                termStatus!.textContent = 'IDLE';
-            }
-        }
-
-
-
-        function updateConsensus() {
-            const valid = [results.bpmA, results.bpmB, results.bpmC].filter(b => b !== null) as number[];
-            if (valid.length === 0) return;
-
-            // Simple consensus: look for values that are close to each other or multiples
-            // We want to find the most likely "true" BPM.
-            let bestBpm = valid[0];
-            
-            // Try to normalize everyone to 60-140 range for comparison
-            const normalized = valid.map(b => {
-                let n = b;
-                while (n > 150) n /= 2;
-                while (n < 60) n *= 2;
-                return n;
-            });
-
-            // Find the average of normalized values if they are close
-            // For now, let's just pick the mean of the two closest if available
-            if (normalized.length >= 2) {
-                normalized.sort((a, b) => a - b);
-                // If they are within 5% of each other, they agree!
-                if (Math.abs(normalized[1] - normalized[0]) < normalized[0] * 0.05) {
-                    bestBpm = Math.round((normalized[0] + normalized[1]) / 2);
-                } else if (normalized.length === 3 && Math.abs(normalized[2] - normalized[1]) < normalized[1] * 0.05) {
-                    bestBpm = Math.round((normalized[1] + normalized[2]) / 2);
-                } else {
-                    // No clear consensus, pick the one from Motor B (RealtimeBPM) as it's usually reliable if not doubled
-                    bestBpm = normalized[valid.indexOf(results.bpmB!)] || normalized[0];
-                }
-            } else {
-                bestBpm = normalized[0];
-            }
-
-            log(`🏆 Consenso actual: ~${bestBpm} BPM`, 'info');
-            document.querySelector('#bpmConsensus')!.textContent = 'BPM: ' + bestBpm.toString();
-            
-            // For key, let's just pick Essentia's for now as it's the most robust
-            const keyA = document.querySelector('#keyA')!.textContent || '';
-            if (keyA.includes('Key:')) {
-                document.querySelector('#keyConsensus')!.textContent = keyA;
-            }
-        }
     </script>
 </body>
 </html>

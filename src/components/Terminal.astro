@@ -1,0 +1,29 @@
+---
+---
+<div id="terminal" class="hidden">
+    <div class="terminal-header">
+        <div class="terminal-title-group">
+             <span>Terminal de Análisis</span>
+             <span id="terminalStatus">IDLE</span>
+        </div>
+        <div class="terminal-actions">
+            <button id="clearLogs" title="Limpiar logs">🧹</button>
+            <button id="toggleExpand" title="Expandir/Contraer">↔️</button>
+            <button id="downloadLogs" title="Descargar Log Completo">💾</button>
+        </div>
+    </div>
+    <div class="terminal-body" id="logContainer">
+    </div>
+</div>
+
+<script>
+    import { clearLogs, downloadLogs } from '../scripts/logger';
+
+    document.querySelector('#clearLogs')?.addEventListener('click', clearLogs);
+
+    document.querySelector('#toggleExpand')?.addEventListener('click', () => {
+        document.querySelector('#terminal')?.classList.toggle('expanded');
+    });
+
+    document.querySelector('#downloadLogs')?.addEventListener('click', downloadLogs);
+</script>
