@@ -84,3 +84,16 @@
 .volume-slider {
     width: 80px;
 }
+
+.player-watermark {
+    position: absolute;
+    bottom: 8px;
+    right: 15px;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: rgba(255, 255, 255, 0.2);
+    font-weight: bold;
+    pointer-events: none;
+    user-select: none;
+}
