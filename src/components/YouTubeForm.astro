@@ -1,7 +1,7 @@
 ---
 ---
 <div id="thumbnailContainer">
-    <img id="thumbnailImg" src="" alt="Preview" style="opacity: 0;" />
+    <img id="thumbnailImg" src="" alt="" style="opacity: 0; visibility: hidden;" />
     <div class="thumbnail-overlay"></div>
 </div>
 
@@ -45,11 +45,13 @@
         if (id) {
             thumbImg.src = `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
             thumbImg.style.opacity = '1';
+            thumbImg.style.visibility = 'visible';
             thumbContainer.style.borderStyle = 'solid';
             log(`Video detectado: ${id}`);
         } else {
             thumbImg.src = '';
             thumbImg.style.opacity = '0';
+            thumbImg.style.visibility = 'hidden';
             thumbContainer.style.borderStyle = 'dashed';
         }
     });
