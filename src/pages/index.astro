@@ -32,7 +32,7 @@ import AnalysisSection from '../components/AnalysisSection.astro';
 
             <!-- Main Downloader Card -->
             <div class="container main-app">
-                <div class="version">v0.3.4</div>
+                <div class="version">v0.3.5</div>
                 <h1>YouTube to MP3</h1>
                 <p class="subtitle"></p>
 
@@ -79,6 +79,13 @@ import AnalysisSection from '../components/AnalysisSection.astro';
             if (termStatus) termStatus.textContent = 'BUSY';
 
             resetResults();
+
+            // Si es un Drag & Drop o acabamos de abrir el panel, damos un respiro a la UI
+            // para que la animación de apertura sea fluida antes de bloquear el hilo con TF.js
+            const appLayout = document.querySelector('#appLayout');
+            if (appLayout?.classList.contains('show-analyzer')) {
+                await new Promise(resolve => setTimeout(resolve, 600)); // Esperamos a que termine la transicion (0.5s)
+            }
 
             try {
                 let arrayBuffer: ArrayBuffer;
