@@ -9,19 +9,23 @@ export const UI = {
     // Analysis Engines
     engines: {
         A: {
+            get card() { return document.getElementById('cardA') as HTMLElement; },
             get bpm() { return document.getElementById('bpmA') as HTMLElement; },
             get key() { return document.getElementById('keyA') as HTMLElement; },
         },
         B: {
+            get card() { return document.getElementById('cardB') as HTMLElement; },
             get bpm() { return document.getElementById('bpmB') as HTMLElement; },
         },
         C: {
+            get card() { return document.getElementById('cardC') as HTMLElement; },
             get bpm() { return document.getElementById('bpmC') as HTMLElement; },
         }
     },
 
     // Audio Monitor / Player
     player: {
+        get container() { return document.getElementById('guiPlayerContainer') as HTMLElement; },
         get playBtn() { return document.getElementById('guiPlayBtn') as HTMLElement; },
         get seekBar() { return document.getElementById('guiSeekBar') as HTMLInputElement; },
         get volume() { return document.getElementById('guiVolume') as HTMLInputElement; },

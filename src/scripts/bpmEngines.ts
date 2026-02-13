@@ -23,6 +23,7 @@ export async function runRealtimeBPMFromSignal(signal: Float32Array, sampleRate:
             results.bpmB = result;
 
             if (UI.engines.B.bpm) UI.engines.B.bpm.textContent = result.toString();
+            UI.engines.B.card?.classList.add('ready');
 
             log(`🎯 Motor B finalizó: ${result} BPM (Confianza: ${Math.round(bpmData[0].count || 0)})`);
             updateConsensus();
@@ -70,6 +71,7 @@ export async function runEssentia(signal: Float32Array, sampleRate: number) {
 
         if (UI.engines.A.bpm) UI.engines.A.bpm.textContent = bpm > 0 ? bpm.toString() : '--';
         if (UI.engines.A.key) UI.engines.A.key.textContent = `Key: ${key} ${scale}`;
+        if (bpm > 0) UI.engines.A.card?.classList.add('ready');
 
         log(`🎯 Motor A finalizó: ${bpm} BPM | Key: ${key} ${scale}`);
         updateConsensus();
@@ -347,6 +349,7 @@ export async function runEssentiaAI(signal: Float32Array, _sampleRate: number) {
         results.bpmC = bpm;
 
         if (UI.engines.C.bpm) UI.engines.C.bpm.textContent = bpm.toString();
+        UI.engines.C.card?.classList.add('ready');
 
         log(`🎯 Motor C finalizó: ${bpm} BPM`, 'info');
         updateConsensus();

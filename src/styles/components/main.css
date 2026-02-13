@@ -227,7 +227,8 @@ h2 {
 
 .analysis-card {
     background: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--border);
+    border: 1px dashed var(--border);
+    /* Initial dashed border */
     border-radius: 10px;
     padding: 1rem;
     text-align: center;
@@ -237,6 +238,24 @@ h2 {
     flex-direction: column;
     justify-content: center;
     align-items: center;
+    transition: all 0.3s ease;
+}
+
+.analysis-card.ready {
+    border-style: solid;
+    /* Solid border when result is ready */
+    background: rgba(255, 255, 255, 0.08);
+    /* Slightly brighter when ready */
+}
+
+/* Hide content until ready */
+.analysis-card>* {
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}
+
+.analysis-card.ready>* {
+    opacity: 1;
 }
 
 .analysis-card h3 {

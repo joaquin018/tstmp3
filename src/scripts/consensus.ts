@@ -17,6 +17,18 @@ export function resetResults() {
     results.bpmA = null;
     results.bpmB = null;
     results.bpmC = null;
+
+    // Reset UI
+    if (UI.engines.A.bpm) UI.engines.A.bpm.textContent = '--';
+    if (UI.engines.A.key) UI.engines.A.key.textContent = 'Key: --';
+    if (UI.engines.B.bpm) UI.engines.B.bpm.textContent = '--';
+    if (UI.engines.C.bpm) UI.engines.C.bpm.textContent = '--';
+
+    UI.engines.A.card?.classList.remove('ready');
+    UI.engines.B.card?.classList.remove('ready');
+    UI.engines.C.card?.classList.remove('ready');
+
+    UI.player.container?.classList.remove('loaded');
 }
 
 export function updateConsensus() {

@@ -23,6 +23,8 @@ export function setupGuiMonitor(signal: Float32Array, sampleRate: number) {
     guiIsPlaying = false;
     if (guiSource) { guiSource.stop(); guiSource = null; }
     guiPausedAt = 0;
+
+    UI.player.container?.classList.add('loaded');
 }
 
 export function togglePlayback() {
