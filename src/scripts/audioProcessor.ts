@@ -37,7 +37,7 @@ export async function runAnalysisFlow() {
     const sliceDuration = bestCandidate.duration;
     currentAudioState.currentStart = sliceStart;
 
-    log(`🔍 Iniciando análisis @ ${sliceStart}s (Fragmento de 30s más fuerte)`);
+    log(`🔍 Iniciando análisis @ ${sliceStart}s (Fragmento de ${sliceDuration}s más fuerte)`);
 
     const startSample = Math.floor(sliceStart * sampleRate);
     const endSample = Math.floor((sliceStart + sliceDuration) * sampleRate);
@@ -113,12 +113,12 @@ export async function runStructuralMapping(signal: Float32Array, sampleRate: num
         const sliceEnergy = energyProfile.slice(start, end).reduce((a, b) => a + b, 0) / dur;
         const sliceRhythm = rhythmDensity.slice(start, end).reduce((a, b) => a + b, 0) / dur;
 
-        let bestStart = Math.min(start + 3, totalDurS - 30);
-        if (totalDurS <= 45) bestStart = 0;
+        let sliceDuration = totalDurS >= 30 ? 30 : totalDurS;
+        let bestStart = Math.max(0, Math.min(start + 3, totalDurS - sliceDuration));
 
         allSlices.push({
-            start: Math.max(0, bestStart),
-            duration: totalDurS > 45 ? 30 : totalDurS,
+            start: bestStart,
+            duration: sliceDuration,
             lufs: sliceLufs,
             rhythm: sliceEnergy + (sliceRhythm * 2.5)
         });
