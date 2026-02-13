@@ -43,6 +43,14 @@
     let thumbHider: any = null;
     let lastProcessedID: string | null = null;
 
+    // Escuchamos la carga real de la imagen para evitar el "salto" de la anterior
+    thumbImg.onload = () => {
+        if (lastProcessedID) {
+            thumbImg.style.opacity = '1';
+            thumbImg.style.visibility = 'visible';
+        }
+    };
+
     async function updateThumbnail(id: string | null) {
         if (id === lastProcessedID) return;
         
@@ -50,15 +58,16 @@
             // Caso: Cambio de Video o Nuevo Video
             if (thumbHider) clearTimeout(thumbHider);
             
-            // Si ya hay una imagen y es distinta, hacemos un desvanecimiento previo
-            if (lastProcessedID && lastProcessedID !== id) {
+            // Si ya hay una imagen y es distinta, la desvanecemos primero
+            if (lastProcessedID) {
                 thumbImg.style.opacity = '0';
-                await new Promise(r => setTimeout(r, 300));
+                // Esperamos un poco menos para que se sienta fluido pero sin flash (200ms)
+                await new Promise(r => setTimeout(r, 200));
             }
 
+            // Preparamos la nueva carga (invisible)
+            thumbImg.style.opacity = '0';
             thumbImg.src = `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
-            thumbImg.style.visibility = 'visible';
-            thumbImg.style.opacity = '1';
             thumbContainer.style.borderStyle = 'solid';
             
             if (lastProcessedID !== id) {
