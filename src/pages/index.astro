@@ -22,7 +22,7 @@ import '../styles/global.css';
 </head>
 <body>
     <!-- Terminal Falso (Izquierda) -->
-    <div id="terminal">
+    <div id="terminal" class="hidden">
         <div class="terminal-header">
             <div class="terminal-title-group">
                  <span>Terminal de Análisis</span>
@@ -38,10 +38,17 @@ import '../styles/global.css';
         </div>
     </div>
 
+    <!-- Capa de Arrastre (Drop Overlay) -->
+    <div id="dropOverlay" class="drop-overlay">
+        <div class="drop-icon">🎵</div>
+        <div class="drop-text">Suelta tu audio aquí</div>
+        <div class="drop-subtext">MP3, WAV, M4A, OGG soportados (Procesamiento 100% Local)</div>
+    </div>
+
     <!-- Contenido Principal -->
     <div class="main-content">
         <div class="container">
-            <div class="version">v0.2.2</div>
+            <div class="version">v0.2.3</div>
             <h1>YouTube to MP3</h1>
             <p class="subtitle"></p>
 
@@ -216,7 +223,7 @@ import '../styles/global.css';
             }
         });
 
-        async function startAnalysis(filename: string) {
+        async function startAnalysis(filename: string | null, externalBuffer: ArrayBuffer | null = null) {
             const analysisSection = document.querySelector('#analysisSection') as HTMLElement;
             analysisSection.style.display = 'block';
             termStatus!.textContent = 'BUSY';
@@ -227,9 +234,18 @@ import '../styles/global.css';
             });
 
             try {
-                log(`📥 Descargando buffet: ${filename}`);
-                const response = await fetch(`/api/get-audio?filename=${encodeURIComponent(filename)}`);
-                const arrayBuffer = await response.arrayBuffer();
+                let arrayBuffer: ArrayBuffer;
+
+                if (externalBuffer) {
+                    log('📁 Usando archivo local arrastrado.');
+                    arrayBuffer = externalBuffer;
+                } else if (filename) {
+                    log(`📥 Descargando buffet: ${filename}`);
+                    const response = await fetch(`/api/get-audio?filename=${encodeURIComponent(filename)}`);
+                    arrayBuffer = await response.arrayBuffer();
+                } else {
+                    throw new Error('No hay fuente de audio válida.');
+                }
 
                 const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 44100 });
                 log('🧠 Decodificando audio (CPU intensivo)...');
@@ -247,6 +263,52 @@ import '../styles/global.css';
             }
         }
 
+        // --- Sistema Drag & Drop ---
+        const dropOverlay = document.querySelector('#dropOverlay');
+
+        window.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropOverlay?.classList.add('active');
+        });
+
+        window.addEventListener('dragleave', (e) => {
+            // Solo quitar si salimos de la ventana
+            if (e.relatedTarget === null) {
+                dropOverlay?.classList.remove('active');
+            }
+        });
+
+        window.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            dropOverlay?.classList.remove('active');
+
+            const file = e.dataTransfer?.files[0];
+            if (file && file.type.startsWith('audio/')) {
+                log(`📂 Archivo detectado: ${file.name} (${(file.size/1024/1024).toFixed(2)} MB)`);
+                statusDiv.style.display = 'block';
+                statusDiv.className = 'status-success';
+                statusDiv.innerHTML = `✅ Procesando archivo local: <b>${file.name}</b>`;
+                
+                const reader = new FileReader();
+                reader.onload = async (event) => {
+                    const buffer = event.target?.result as ArrayBuffer;
+                    startAnalysis(null, buffer);
+                };
+                reader.readAsArrayBuffer(file);
+            } else {
+                log('❌ El archivo no es un audio válido.', 'error');
+            }
+        });
+
+        // --- Shortcut para Terminal (Ctrl + Alt + L) ---
+        window.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.altKey && e.key === 'l') { // Usamos 'l' minúscula para mayor compatibilidad
+                const term = document.querySelector('#terminal');
+                term?.classList.toggle('hidden');
+                log('Terminal toggleado vía comando secreto.');
+            }
+        });
+
         // --- Motores (Fixes v0.1.4) ---
 
         // Global results for consensus
@@ -257,7 +319,7 @@ import '../styles/global.css';
         };
 
         async function runEssentia(signal: Float32Array, sampleRate: number) {
-            log('🚀 Motor A (Essentia): Iniciando v0.1.6...');
+            log('🚀 Motor A (Essentia): Iniciando...');
             try {
                 // In the Web build, sometimes it's just 'EssentiaWasm'
                 const Essentia = (window as any).Essentia;
@@ -273,7 +335,7 @@ import '../styles/global.css';
                     throw new Error("No se encontró EssentiaWasm en el objeto global.");
                 }
 
-                log('⚙️ Inicializando backend WASM v0.1.8...', 'info', {
+                log('⚙️ Inicializando backend WASM...', 'info', {
                     backend: typeof Factory
                 });
                 
