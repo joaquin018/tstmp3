@@ -1,5 +1,6 @@
 ---
 import '../styles/global.css';
+import '../styles/components/toast.css';
 import Terminal from '../components/Terminal.astro';
 import DropOverlay from '../components/DropOverlay.astro';
 import YouTubeForm from '../components/YouTubeForm.astro';
@@ -26,7 +27,7 @@ import AnalysisSection from '../components/AnalysisSection.astro';
 
     <div class="main-content">
         <div class="container">
-            <div class="version">v0.2.6</div>
+            <div class="version">v0.2.7</div>
             <h1>YouTube to MP3</h1>
             <p class="subtitle"></p>
 
@@ -39,6 +40,7 @@ import AnalysisSection from '../components/AnalysisSection.astro';
         import { log } from '../scripts/logger';
         import { resetResults } from '../scripts/consensus';
         import { runAnalysisFlow, runStructuralMapping, setAudioState } from '../scripts/audioProcessor';
+        import { showToast } from '../scripts/notifications';
 
         window.addEventListener('audio-ready', async (e: any) => {
             const { filename, buffer } = e.detail;
@@ -47,7 +49,7 @@ import AnalysisSection from '../components/AnalysisSection.astro';
 
         async function startAnalysis(filename: string | null, externalBuffer: ArrayBuffer | null = null) {
             const analysisSection = document.querySelector('#analysisSection') as HTMLElement;
-            const termStatus = document.querySelector('#terminalStatus');
+            const termStatus = document.getElementById('terminalStatus');
             
             if (analysisSection) analysisSection.style.display = 'block';
             if (termStatus) termStatus.textContent = 'BUSY';
@@ -73,6 +75,14 @@ import AnalysisSection from '../components/AnalysisSection.astro';
                 const channelData = audioBuffer.getChannelData(0);
                 const totalDuration = Math.round(audioBuffer.duration);
                 log(`📊 Audio decodificado. Duración: ${totalDuration}s`);
+
+                if (totalDuration < 15) {
+                    const msg = '⚠️ El audio es demasiado corto. Se requiere un mínimo de 15 segundos para el análisis estructural.';
+                    log(msg, 'error');
+                    showToast(msg, 'error');
+                    if (termStatus) termStatus.textContent = 'ERROR';
+                    return;
+                }
 
                 const mapping = await runStructuralMapping(channelData, audioBuffer.sampleRate);
                 
