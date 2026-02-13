@@ -23,6 +23,18 @@
 
 <div id="status"></div>
 
+<div class="form-footer">
+    <button type="button" id="toggleCookies" class="settings-btn" title="Configuración avanzada">
+        <span class="icon">⚙️</span> Acceso
+    </button>
+</div>
+
+<div id="cookiesPanel" class="cookies-panel" style="display: none;">
+    <label for="cookies">Cookies de YouTube (Netscape format)</label>
+    <p class="help-text">Instala una extensión como "Get cookies.txt" y pega el contenido aquí para evitar bloqueos.</p>
+    <textarea id="cookies" placeholder="# Netscape HTTP Cookie File..."></textarea>
+</div>
+
 <script>
     import { log } from '../scripts/logger';
 
@@ -33,6 +45,25 @@
     const statusDiv = document.querySelector('#status') as HTMLElement;
     const btn = document.querySelector('#downloadBtn') as HTMLButtonElement;
     const btnText = document.querySelector('#btnText');
+    const toggleCookies = document.querySelector('#toggleCookies');
+    const cookiesPanel = document.querySelector('#cookiesPanel') as HTMLElement;
+    const cookiesInput = document.querySelector('#cookies') as HTMLTextAreaElement;
+
+    // Cargar cookies guardadas
+    const savedCookies = localStorage.getItem('yt_cookies');
+    if (savedCookies) {
+        cookiesInput.value = savedCookies;
+    }
+
+    toggleCookies?.addEventListener('click', () => {
+        const isHidden = cookiesPanel.style.display === 'none';
+        cookiesPanel.style.display = isHidden ? 'block' : 'none';
+        toggleCookies.classList.toggle('active', isHidden);
+    });
+
+    cookiesInput?.addEventListener('input', () => {
+        localStorage.setItem('yt_cookies', cookiesInput.value);
+    });
 
     function getYouTubeID(url: string) {
         const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
@@ -108,10 +139,11 @@
         log(`➡️ URL enviada: ${url}`);
 
         try {
+            const cookies = cookiesInput.value.trim();
             const response = await fetch('/api/download', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url })
+                body: JSON.stringify({ url, cookies })
             });
 
             const result = await response.json();

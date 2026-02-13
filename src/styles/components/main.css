@@ -180,6 +180,88 @@ button:active {
     transform: scale(0.98);
 }
 
+.form-footer {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 10px;
+}
+
+.settings-btn {
+    background: transparent !important;
+    border: 1px solid #333 !important;
+    color: #666 !important;
+    padding: 5px 12px !important;
+    border-radius: 15px !important;
+    font-size: 0.75rem !important;
+    width: auto !important;
+    font-weight: normal !important;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    box-shadow: none !important;
+}
+
+.settings-btn:hover,
+.settings-btn.active {
+    color: var(--accent) !important;
+    border-color: var(--accent) !important;
+}
+
+.cookies-panel {
+    margin-top: 15px;
+    text-align: left;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 15px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    animation: fadeIn 0.3s ease;
+}
+
+.cookies-panel label {
+    display: block;
+    font-size: 0.8rem;
+    color: #888;
+    margin-bottom: 5px;
+}
+
+.cookies-panel .help-text {
+    font-size: 0.7rem;
+    color: #555;
+    margin-bottom: 10px;
+}
+
+.cookies-panel textarea {
+    width: 100%;
+    height: 80px;
+    background: #1a1a1a;
+    border: 1px solid #333;
+    border-radius: 6px;
+    color: #444;
+    font-family: monospace;
+    font-size: 0.7rem;
+    padding: 8px;
+    resize: vertical;
+}
+
+.cookies-panel textarea:focus {
+    border-color: var(--accent);
+    color: #ccc;
+    outline: none;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 button:disabled {
     background: #555;
     cursor: not-allowed;

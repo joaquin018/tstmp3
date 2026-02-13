@@ -1,0 +1,8 @@
+node_modules
+.astro
+dist
+downloads
+yt-dlp.exe
+.DS_Store
+.git
+.vscode
